@@ -1,0 +1,14 @@
+# Fruit labels that also exist in ImageNet
+# Edible fruit category: https://observablehq.com/@mbostock/imagenet-hierarchy
+fruit: # Prompt: "{fruit} on a white plate"
+- apple
+- strawberry
+- lemon
+- orange
+- banana
+- custard apple
+- fig
+- jackfruit
+- pineapple
+- pomegranate
+

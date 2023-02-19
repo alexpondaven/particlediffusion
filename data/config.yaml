@@ -1,0 +1,8 @@
+# Params for fruit dataset
+# samples_per_class: 1000
+# num_steps: 20 # Number of inference steps
+# cfg: 8 # classifier free guidance scale
+
+samples_per_class: 1000
+num_steps: 20 # Number of inference steps
+cfg: 16 # classifier free guidance scale
