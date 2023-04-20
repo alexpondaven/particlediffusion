@@ -12,3 +12,15 @@ fruit: # Prompt: "{fruit} on a white plate"
 - pineapple
 - pomegranate
 
+fruit_white: # Prompt: "{fruit}, white background"
+- apple
+- strawberry
+- lemon
+- orange
+- banana
+- custard apple
+- fig
+- jackfruit
+- pineapple
+- pomegranate
+

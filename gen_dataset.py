@@ -1,13 +1,14 @@
 ## Generate most diverse set of images
 
 import os
-os.environ["CUDA_VISIBLE_DEVICES"]="3"
+os.environ["CUDA_VISIBLE_DEVICES"]="0"
 
 import yaml
 import numpy as np
 import random
 import torch
 from diffusers import StableDiffusionPipeline
+print("CUDA?: ", torch.cuda.is_available())
 
 # Using 512x512 resolution
 model_id = "stabilityai/stable-diffusion-2-base"
@@ -29,9 +30,10 @@ with open("data/config.yaml", 'r') as stream:
     params = yaml.safe_load(stream)
 
 # Sample from dataset classes
-dataset = 'fruit' ## Specify dataset (classes specified in data/labels.yaml)
+dataset = 'fruit_white' ## Specify dataset (classes specified in data/labels.yaml)
 for label in labels[dataset]:
-    prompt = f"{label} on a white plate"
+    # prompt = f"{label} on a white plate"
+    prompt = f"{label}, white background"
     filename = label.replace(" ", "_")
     dst_path = os.path.join("data",dataset, filename)
     os.makedirs(dst_path, exist_ok=True)

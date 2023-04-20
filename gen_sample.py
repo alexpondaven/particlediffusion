@@ -1,5 +1,5 @@
 import os
-os.environ["CUDA_VISIBLE_DEVICES"]="3"
+os.environ["CUDA_VISIBLE_DEVICES"]="1"
 
 import yaml
 import numpy as np
@@ -29,9 +29,9 @@ with open("data/config.yaml", 'r') as stream:
 # Sample from dataset classes
 dataset = 'sample' ## Specify dataset (classes specified in data/labels.yaml)
 for label in ['apple']:
-    prompt = f"apple on a white plate"
+    prompt = f"apple, white background"
     filename = label.replace(" ", "_")
-    dst_path = os.path.join("data",dataset, filename)
+    dst_path = os.path.join("data",dataset, "apple_white_1k")
     os.makedirs(dst_path, exist_ok=True)
     print(label)
     for i in range(params['samples_per_class']):
