@@ -2,6 +2,7 @@ import torch
 from tqdm.auto import tqdm
 import numpy as np
 
+## Initialisation
 def get_sigmas(config, device="cuda"):
     beta_end=config['beta_end']
     beta_start=config['beta_start']
@@ -51,6 +52,8 @@ def get_score_input(prompt, config, generator, device="cuda"):
     )
     return init_latents, text_embeddings
 
+
+## Sampling helpers
 def scale_input(sample, sigma):
     """Scales the denoising model input by `(sigma**2 + 1) ** 0.5` to match the Euler algorithm."""
     sample = sample / ((sigma**2 + 1) ** 0.5)
@@ -84,7 +87,6 @@ def get_score(sample, sigma, t, config):
 
     return score
       
-
 def step_score(
         sample: torch.FloatTensor,
         score: torch.FloatTensor,
