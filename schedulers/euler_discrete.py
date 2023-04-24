@@ -344,6 +344,8 @@ class EulerDiscreteCustomScheduler():
         if self.config.prediction_type == "original_sample" or self.config.prediction_type == "sample":
             pred_original_sample = model_output
         elif self.config.prediction_type == "epsilon":
+            # based on reparameterisation Appendix B SD paper
+            # NOTE: model_output evaluated on sigma, not sigma_hat - maybe not relevant with more timesteps
             pred_original_sample = sample - sigma_hat * model_output
         elif self.config.prediction_type == "v_prediction":
             # * c_out + input * c_skip
@@ -359,6 +361,8 @@ class EulerDiscreteCustomScheduler():
         dt = self.sigmas[step_index + 1] - sigma_hat
 
         prev_sample = sample + derivative * dt
+
+        # NOTE: No 2nd order correction here (would require another score evaluation)
 
         if not return_dict:
             return (prev_sample,)

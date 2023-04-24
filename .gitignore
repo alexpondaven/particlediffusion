@@ -1,3 +1,4 @@
 *.png
 *.pth
+*.npz
 */__pycache__
