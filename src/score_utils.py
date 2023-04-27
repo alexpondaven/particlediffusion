@@ -2,6 +2,8 @@ import torch
 from tqdm.auto import tqdm
 import numpy as np
 
+from src.sampling_utils import random_step, langevin_step, repulsive_step
+
 ## Initialisation
 def get_sigmas(config, device="cuda"):
     beta_end=config['beta_end']
@@ -53,7 +55,7 @@ def get_score_input(prompt, config, generator, device="cuda"):
     return init_latents, text_embeddings
 
 
-## Sampling helpers
+## Score/denoising helpers
 def scale_input(sample, sigma):
     """Scales the denoising model input by `(sigma**2 + 1) ** 0.5` to match the Euler algorithm."""
     sample = sample / ((sigma**2 + 1) ** 0.5)
@@ -105,53 +107,21 @@ def step_score(
 
         return prev_sample
 
-def langevin_step(
-        sample: torch.FloatTensor,
-        score,
-        generator,
-        snr = 0.01,
-        device="cuda",
-    ):
-        """Take noisy step towards score - function based off VE shceduler corrector step method"""
-        # For small batch sizes, the paper "suggest replacing norm(z) with sqrt(d), where d is the dim. of z"
-        # sample noise for correction
-        noise = torch.randn(sample.shape, layout=sample.layout, device=device, generator=generator).to(device)
-        # offset_noise = 0.1 * torch.randn((latents.shape[0], latents.shape[1], 1, 1), layout=sample.layout, device=device, generator=generator)
-        # noise = (noise + offset_noise).to(device)
-
-        # compute step size from the model_output, the noise, and the snr
-        # grad_norm = torch.norm(score.reshape(score.shape[0], -1), dim=-1).mean()
-        # noise_norm = torch.norm(noise.reshape(noise.shape[0], -1), dim=-1).mean()
-        # step_size = (snr * noise_norm / grad_norm) ** 2 * 2
-        # step_size = step_size * torch.ones(sample.shape[0]).to(sample.device)
-        # step_size = step_size.flatten()
-        # while len(step_size.shape) < len(sample.shape):
-        #     step_size = step_size.unsqueeze(-1)
-
-        step_size=0.1
-        
-        prev_sample_mean = sample + step_size * score
-        prev_sample = prev_sample_mean + ((step_size * 2) ** 0.5) * noise
-
-        return prev_sample
-
-def repulsive_term(particles):
-    # Repulsive term using random CNN diversity calculation
-    pass
-
 def denoise(
-    score_move,
+    correction_levels,
+    correction_steps,
     config,
+    generator,
     return_all_samples=False,
-    save_score_norms=False,
     device="cuda",
     ):
     """ Denoising function
         init_latents: Starting latent sample to denoise from
-        score_move: list of noise levels where score updates should be done (towards MAP)
+        correction_levels: list of noise levels where langevin steps should be done (towards MAP)
+        correction_steps: how many steps to do in each noise level correction_levels
         sigmas: noise level for each timestep
         timestep: associated timesteps to pass to unet
-        return_final: return final latent sample, otherwise return list of all samples
+        return_final: return final latent sample, otherwise return list of all samples (save every other latent)
     """
     # standard deviation of the initial noise distribution
     sigmas = config['sigmas']
@@ -159,32 +129,27 @@ def denoise(
 
     if return_all_samples:
         latent_list = [latents]
-    score_norm_hist = []
     for i, t in enumerate(tqdm(config['timesteps'])):
         t = t.to(device)
         step_index = (config['timesteps'] == t).nonzero().item()
         sigma = sigmas[step_index]
+
+        # Langevin steps
+        if i in correction_levels:
+            for _ in range(correction_steps):
+                score = get_score(latents, sigma, t, config)
+                latents = langevin_step(latents, score, generator)
         
         # Move to next marginal in diffusion
         score = get_score(latents, sigma, t, config)
         latents = step_score(latents, score, sigmas, step_index)
-        if return_all_samples:
+        if return_all_samples and i%2==0:
             latent_list.append(latents)
-        
-        # Langevin steps at certain noise level
-        if i in score_move:
-            for _ in range(10):
-                score = get_score(latents, sigma, t, config)
-                score_norm = torch.norm(score.reshape(score.shape[0], -1), dim=-1).mean()
-                if save_score_norms:
-                    score_norm_hist.append(score_norm.item())
-                # latents = langevin_step(latents, score, snr=0.05, generator=generator)
-                latents += 0.1*score
-                if return_all_samples:
-                    latent_list.append(latents)
 
     
     if return_all_samples:
-        return latent_list, score_norm_hist
+        return latent_list
     
-    return latents, score_norm_hist
+    return latents
+
+
