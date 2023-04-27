@@ -1,6 +1,7 @@
 import torch
-import autograd.numpy as np
-
+# import autograd.numpy as np
+import numpy as np
+# Code from GSVGD repo
 
 def l2norm(X, Y):
     """Compute \|X - Y\|_2^2 of tensors X, Y
