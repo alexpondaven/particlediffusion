@@ -1,5 +1,6 @@
 # Generate samples taking langevin/random/repulsive steps from an initial latent at different noise levels
 import os
+os.environ["CUDA_VISIBLE_DEVICES"]="3"
 import yaml
 import numpy as np
 import random
@@ -7,10 +8,12 @@ import torch
 from diffusers import StableDiffusionPipeline
 import pandas as pd
 import argparse
+from PIL import Image
 
+from src.visualise import image_grid, latent_to_img, decode_latent, output_to_img
 from src.kernel import RBF
 from src.embedding import CNN, init_weights
-from src.score_utils import get_sigmas, get_score_input, scale_input, get_score, step_score, denoise
+from src.score_utils import get_sigmas, get_score_input, denoise_particles
 
 # Arguments
 parser = argparse.ArgumentParser(description="Running diversity steps experiment.")
@@ -29,7 +32,7 @@ parser.add_argument("--step_size", type=float, default=0.2, help="fixed stepsize
 parser.add_argument("--nparticles", type=int, default=2, help="no. of particles")
 parser.add_argument("--kernel", type=str, default="rbf", help="kernel")
 parser.add_argument("--model", type=str, default="rcnn", help="embedding model for latents for latent evaluation")
-parser.add_argument("--gpu", type=int, default=0, help="gpu")
+parser.add_argument("--gpu", type=int, default=3, help="gpu")
 
 args = parser.parse_args()
 prompt = args.prompt
@@ -40,11 +43,12 @@ num_steps = args.num_steps
 num_samples = args.num_samples
 step_size = args.step_size
 nparticles = args.nparticles
-device = torch.device(f"cuda:{args.gpu}" if args.gpu != -1 else "cpu")
+device="cuda"
+# device = torch.device(f"cuda:{args.gpu}" if args.gpu != -1 else "cpu")
 
-prompt_filename = prompt.replace(" ", "_")
-results_folder = f"../data/{method}/{prompt_filename}_{seed}/"
-filename = f"{noise_level}_{num_steps}_{step_size}"
+# prompt_filename = prompt.replace(" ", "_")
+# results_folder = f"../data/{method}/{prompt_filename}_{seed}/"
+# filename = f"{noise_level}_{num_steps}_{step_size}"
 
 if args.kernel == "rbf":
     Kernel = RBF
@@ -92,8 +96,25 @@ config = {**config,
           }
 
 # Denoise
-generator = torch.Generator("cuda").manual_seed(seed)
-particles = []
-particles = denoise_particles([],0,config, num_particles=4, generator=generator)
+
+for addpart_level in range(1):
+    for addpart_method in ['langevin']: #["langevin", "random", "score"]:
+        for cseed in range(seed, seed+5):
+            generator = torch.Generator("cuda").manual_seed(cseed)
+            particles = denoise_particles(config, generator, num_particles=1, 
+                                        addpart_level=addpart_level, addpart_step_size=0.1, 
+                                        addpart_steps=100, addpart_method=addpart_method)
+            pil_images = []
+            for l in particles:
+                image = output_to_img(decode_latent(l, pipe.vae))
+                images = (image * 255).round().astype("uint8")
+                pil_images.append([Image.fromarray(image) for image in images][0])
+
+            grid = image_grid(pil_images,1,len(particles))
+            
+            prompt_filename = prompt.replace(" ", "_")
+            results_folder = f"data/denoise_results/{addpart_method}/{prompt_filename}/"
+            filename = f"{noise_level}_{cseed}_{num_steps}_{step_size}.jpg"
+            grid.save(os.path.join(results_folder, filename))
 
 # Store image
