@@ -76,7 +76,6 @@ config = {
 }
 
 # Seeds
-seed=1024
 generator = torch.Generator("cuda").manual_seed(seed)
 torch.manual_seed(seed)
 np.random.seed(0)
@@ -93,5 +92,8 @@ config = {**config,
           }
 
 # Denoise
+generator = torch.Generator("cuda").manual_seed(seed)
+particles = []
+particles = denoise_particles([],0,config, num_particles=4, generator=generator)
 
 # Store image
