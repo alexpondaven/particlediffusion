@@ -63,10 +63,12 @@ if args.model =="rcnn":
 
 # Using 512x512 resolution
 model_id = "stabilityai/stable-diffusion-2-base"
-pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=torch.float16)
-pipe = pipe.to("cuda")
+pipe = StableDiffusionPipeline.from_pretrained(model_id)
+device = "cuda"
+pipe = pipe.to(device)
 pipe.safety_checker = None
 
+prompt = "a black cat"
 config = {
     "pipe": pipe,
     "height": 512,
@@ -82,8 +84,8 @@ config = {
 # Seeds
 generator = torch.Generator("cuda").manual_seed(seed)
 torch.manual_seed(seed)
-np.random.seed(0)
-random.seed(0)
+np.random.seed(seed)
+random.seed(seed)
 
 # Noise levels
 sigmas, timesteps = get_sigmas(config, device=device)
@@ -96,14 +98,18 @@ config = {**config,
           }
 
 # Denoise
-
-for addpart_level in range(1):
-    for addpart_method in ['langevin']: #["langevin", "random", "score"]:
-        for cseed in range(seed, seed+5):
-            generator = torch.Generator("cuda").manual_seed(cseed)
-            particles = denoise_particles(config, generator, num_particles=1, 
-                                        addpart_level=addpart_level, addpart_step_size=0.1, 
-                                        addpart_steps=100, addpart_method=addpart_method)
+for addpart_method in ['score']: #["langevin", "random", "score"]:
+    prompt_filename = prompt.replace(" ", "_")
+    results_folder = f"data/denoise_results/{addpart_method}/{prompt_filename}"
+    os.makedirs(results_folder, exist_ok=True)
+    for addpart_level in range(12,20):
+        # Don't need multiple seeds for non-noisy methods like score
+        end_seed = seed if addpart_method=="score" else seed+4
+        for cseed in range(seed, end_seed+1):
+            generator = torch.Generator(device).manual_seed(cseed)
+            particles = denoise_particles(config, generator, num_particles=10, 
+                                        addpart_level=addpart_level, addpart_step_size=step_size, 
+                                        addpart_steps=num_steps, addpart_method=addpart_method)
             pil_images = []
             for l in particles:
                 image = output_to_img(decode_latent(l, pipe.vae))
@@ -112,9 +118,5 @@ for addpart_level in range(1):
 
             grid = image_grid(pil_images,1,len(particles))
             
-            prompt_filename = prompt.replace(" ", "_")
-            results_folder = f"data/denoise_results/{addpart_method}/{prompt_filename}/"
-            filename = f"{noise_level}_{cseed}_{num_steps}_{step_size}.jpg"
-            grid.save(os.path.join(results_folder, filename))
-
-# Store image
+            filename = os.path.join(results_folder, f"lvl{addpart_level}_seed{cseed}_nsteps{num_steps}_stepsz{step_size}.png")
+            grid.save(filename)
