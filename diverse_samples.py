@@ -24,9 +24,9 @@ parser.add_argument("--seed", type=int, default=0, help="random seed")
 # Diversification method
 parser.add_argument("--method", type=str, default="langevin", help="random, langevin, or repulsive")
 parser.add_argument("--noise_level", type=int, default=0, help="noise_level to take steps in")
-parser.add_argument("--num_steps", type=int, default=10, help="no. of steps to take between samples")
+parser.add_argument("--num_steps", type=int, default=100, help="no. of steps to take between samples")
 parser.add_argument("--num_samples", type=int, default=10, help="no. of samples to take")
-parser.add_argument("--step_size", type=float, default=0.2, help="fixed stepsize")
+parser.add_argument("--step_size", type=float, default=0.1, help="fixed stepsize")
 
 # Particle/repulsive method arguments
 parser.add_argument("--nparticles", type=int, default=2, help="no. of particles")
@@ -98,16 +98,16 @@ config = {**config,
           }
 
 # Denoise
-for addpart_method in ['score']: #["langevin", "random", "score"]:
+for addpart_method in ["langevin", "random", "score"]: #["langevin"]:
     prompt_filename = prompt.replace(" ", "_")
-    results_folder = f"data/denoise_results/{addpart_method}/{prompt_filename}"
+    results_folder = f"data/denoise_results/{addpart_method}/{prompt_filename}_seed{seed}"
     os.makedirs(results_folder, exist_ok=True)
-    for addpart_level in range(12,20):
+    for addpart_level in range(20):
         # Don't need multiple seeds for non-noisy methods like score
-        end_seed = seed if addpart_method=="score" else seed+4
+        end_seed = seed if addpart_method=="score" else seed+14
         for cseed in range(seed, end_seed+1):
             generator = torch.Generator(device).manual_seed(cseed)
-            particles = denoise_particles(config, generator, num_particles=10, 
+            particles = denoise_particles(config, generator, num_particles=num_samples, 
                                         addpart_level=addpart_level, addpart_step_size=step_size, 
                                         addpart_steps=num_steps, addpart_method=addpart_method)
             pil_images = []
@@ -118,5 +118,6 @@ for addpart_method in ['score']: #["langevin", "random", "score"]:
 
             grid = image_grid(pil_images,1,len(particles))
             
-            filename = os.path.join(results_folder, f"lvl{addpart_level}_seed{cseed}_nsteps{num_steps}_stepsz{step_size}.png")
+            file_step_size = str(step_size).replace(".","_")
+            filename = os.path.join(results_folder, f"lvl{addpart_level}_seed{seed}_stepseed{cseed}_nsteps{num_steps}_stepsz{file_step_size}.png")
             grid.save(filename)
