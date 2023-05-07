@@ -4,7 +4,7 @@ import numpy as np
 
 from src.sampling_utils import random_step, langevin_step, repulsive_step
 from src.kernel import RBF
-from src.embedding import CNN, init_weights
+from src.embedding import CNN64, CNN16, init_weights
 
 ## Initialisation
 def get_sigmas(config, device="cuda"):
@@ -206,8 +206,8 @@ def denoise_particles(
     addpart_step_size=0.2,
     addpart_method="langevin",
     num_particles=1,
-    Model=CNN,
-    model_path="model.pt",
+    Model=CNN16,
+    model_path="model16.pt",
     Kernel=RBF,
     device="cuda",
 ):

@@ -19,7 +19,7 @@ def latent_to_img(latent_list):
     # Convert latent unet output to format that can be visualised with plt.imshow
     res = []
     for latent in latent_list:
-        lat = latent.permute(2,3,1,0).squeeze().cpu()[...,:]
+        lat = latent.permute(2,3,1,0).squeeze().cpu().detach()[...,:]
         lat -= lat.min()
         lat /= lat.max()
         res.append(lat)
