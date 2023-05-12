@@ -40,7 +40,7 @@ class CNN64(nn.Module):
         return x.squeeze()
 
 class CNN16(nn.Module):
-    def __init__(self):
+    def __init__(self, relu=True):
         super().__init__()
         self.conv1 = nn.Conv2d(4, 8, kernel_size=3, stride=2, padding=1)
         self.conv2 = nn.Conv2d(8, 8, kernel_size=3, stride=2, padding=1)
@@ -48,7 +48,10 @@ class CNN16(nn.Module):
         self.conv4 = nn.Conv2d(8, 16, kernel_size=3, stride=2, padding=1)
         self.conv5 = nn.Conv2d(16, 16, kernel_size=3, stride=2, padding=1)
         self.conv6 = nn.Conv2d(16, 16, kernel_size=2, stride=1, padding=0)
-        self.act = nn.ReLU()
+        if relu:
+            self.act = nn.ReLU()
+        else:
+            self.act = nn.Identity()
 
     def forward(self, x):
         # input is 1x4x64x64
@@ -64,3 +67,10 @@ class CNN16(nn.Module):
         x = self.act(x)
         x = self.conv6(x) # 1x16x1x1
         return x.squeeze()
+
+class Average(nn.Module):
+    def __init__(self):
+        super().__init__()
+    
+    def forward(self, x):
+        return torch.mean(x)
