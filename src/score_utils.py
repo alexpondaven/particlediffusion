@@ -1,10 +1,12 @@
 import torch
 from tqdm.auto import tqdm
 import numpy as np
+from collections import deque
 
-from src.sampling_utils import random_step, langevin_step, repulsive_step
+from src.sampling_utils import random_step, langevin_step, repulsive_step_parallel
 from src.kernel import RBF
 from src.embedding import CNN64, CNN16, init_weights
+
 
 ## Initialisation
 def get_sigmas(config, device="cuda"):
@@ -31,7 +33,7 @@ def get_sigmas(config, device="cuda"):
     
     return sigmas, timesteps
 
-def get_score_input(prompt, config, generator, device="cuda"):
+def get_score_input(prompt, config, generator, device="cuda", dtype=torch.float32):
     """Return text embedding and initial latent i.e. the input to the diffusion model"""
     pipe = config['pipe']
     batch_size = config['batch_size']
@@ -53,7 +55,7 @@ def get_score_input(prompt, config, generator, device="cuda"):
         (batch_size, pipe.unet.in_channels, height//8, width//8),
         generator=generator,
         device=device,
-    )
+    ).to(dtype)
     return init_latents, text_embeddings
 
 
@@ -155,6 +157,16 @@ def denoise(
     return latents
 
 ## Particle utils
+def spread(particles):
+    # Get L2 distances between particles
+    spread=0
+    n = len(particles)
+    for i in range(n):
+        for j in range(i+1,n):
+            spread += torch.mean((particles[i]-particles[j])**2)
+    
+    return spread
+
 def correct_particles(
     particles,
     sigma,
@@ -165,7 +177,8 @@ def correct_particles(
     generator,
     step_size=0.2,
     model=None,
-    K=None,
+    kernel=None,
+    phi_history_size=20
     ):
     """ At certain noise scale (step t), apply correction steps to all particles
         particles: N particles in the diffusion process
@@ -177,10 +190,30 @@ def correct_particles(
     if correction_method=="random":
         new_particles = random_step(particles, correction_steps, generator, step_size=step_size)
     elif correction_method=="repulsive":
-        for _ in range(correction_steps):
+        # Parallel particles
+        phi_history = deque([], phi_history_size)
+        for i in range(correction_steps):
             scores = [get_score(particle, sigma, t, config) for particle in particles]
-            particles = repulsive_step(particles, scores, model, K, generator, step_size=step_size)
+            particles = repulsive_step_parallel(particles, scores, phi_history, model, kernel, generator, step_size=step_size)
+            print(f"Correction {i} spread: SD - {spread(particles)} embedding - {spread([model(particle) for particle in particles])}")
         new_particles = particles
+
+    elif correction_method=="repulsive_series":
+        # WIP: Update particles one at a time
+        # phi_history = deque([], phi_history_size)
+
+        # # Add particles 
+        # for particle in particles:
+        #     phi_grad = get_phi_grad(particle, model)
+        #     phi_history.append(phi_grad)
+
+        # for i in range(correction_steps):
+        #     for n in range(len(particles)):
+        #         score = get_score(particles[n], sigma, t, config)
+        #         particles[n] = repulsive_step(particles[n], scores, phi_grad, phi_history, model, kernel, generator, step_size=step_size)
+        #         print(f"Correction {i} spread: SD - {spread(particles)} embedding - {spread([model(particle) for particle in particles])}")
+        new_particles = particles
+
     elif correction_method=="langevin" or correction_method=="score":
         new_particles = []
         add_noise = (correction_method=="langevin")
@@ -206,18 +239,17 @@ def denoise_particles(
     addpart_step_size=0.2,
     addpart_method="langevin",
     num_particles=1,
-    Model=CNN16,
-    model_path="model16.pt",
-    Kernel=RBF,
+    model=None,
+    kernel=RBF(),
     device="cuda",
 ):
     """ General function to take steps and add particles at different noise levels of diffusion
         correction_levels (int or List[int]): noise level indices to do correction steps in
         correction_steps (int or List[int]): number of correction steps to take in each noise level
-        correction_method (str or List[str]): method of correction e.g. random, langevin, score or repulsive 
+        correction_method (str or List[str]): method of correction e.g. random, langevin, score 
         addpart_level (int): noise level index to add particles in
         addpart_steps (int): number of steps taken between particles
-        addpart_method (str): method of steps for adding particles e.g. random, langevin, score or repulsive 
+        addpart_method (str): method of steps for adding particles e.g. random, langevin, score (NOT repulsive)
         config (Dict): info for diffusion
         generator: RNG generator - reset before calling this method
         num_particles=2: number of particles to add at addpart_level
@@ -226,17 +258,12 @@ def denoise_particles(
         Kernel=RBF: Kernel class to use for repulsive steps
         device="cuda",
     """
+    if addpart_method=="repulsive":
+        print("Cannot use repulsive steps to add new particles.")
+        return None
     # standard deviation of the initial noise distribution
     sigmas = config['sigmas']
     latents = config['init_latents'] * sigmas.max()
-
-    # Embedding model for repulsive force
-    model = Model()
-    model.load_state_dict(torch.load(model_path))
-    model.to(torch.device("cuda"))
-
-    # Kernel
-    K = Kernel()
 
     particles = [latents]
     for i, t in enumerate(tqdm(config['timesteps'])):
@@ -257,9 +284,10 @@ def denoise_particles(
                     generator=generator, 
                     step_size=addpart_step_size, 
                     model=model, 
-                    K=K
+                    kernel=kernel
                 )
                 particles.append(new_particle[0])
+            print(f"Initial spread: SD - {spread(particles)} embedding - {spread([model(particle) for particle in particles])}")
         
         # Correction steps
         if i in correction_levels:
@@ -273,7 +301,7 @@ def denoise_particles(
                 generator=generator, 
                 step_size=correction_step_size, 
                 model=model, 
-                K=K
+                kernel=kernel
             )
         
         # Move to next marginal in diffusion

@@ -12,7 +12,7 @@ from PIL import Image
 
 from src.visualise import image_grid, latent_to_img, decode_latent, output_to_img
 from src.kernel import RBF
-from src.embedding import CNN64, CNN16, Average, SoftBoundedAverage, VAEAverage, init_weights
+from src.embedding import CNN, init_weights
 from src.score_utils import get_sigmas, get_score_input, denoise_particles
 
 # Arguments
@@ -53,6 +53,13 @@ device="cuda"
 if args.kernel == "rbf":
     Kernel = RBF
 
+if args.model =="rcnn":
+    # Random CNN
+    model_path = "model.pt"
+    net = CNN()
+    net.load_state_dict(torch.load(model_path))
+    net.to(torch.device("cuda"))
+
 
 # Using 512x512 resolution
 model_id = "stabilityai/stable-diffusion-2-base"
@@ -91,26 +98,26 @@ config = {**config,
           }
 
 # Denoise
-seed=1024
-generator = torch.Generator("cuda").manual_seed(seed)
-# Embedding model for repulsive force
-# model = CNN16(relu=False)
-# model_path = "model16.pt"
-# model.load_state_dict(torch.load(model_path))
-# model.to(torch.device("cuda"))
-model=VAEAverage(vae=pipe.vae)
-# model=Average()
-# Denoise
-particles = denoise_particles(config, generator, num_particles=2, correction_levels=[0], correction_steps=20, correction_step_size=0.2,
-                                correction_method="repulsive", model=model)
-pil_images = []
-for l in particles:
-    image = output_to_img(decode_latent(l, pipe.vae))
-    images = (image * 255).round().astype("uint8")
-    pil_images.append([Image.fromarray(image) for image in images][0])
+for addpart_method in ["langevin", "random", "score"]: #["langevin"]:
+    prompt_filename = prompt.replace(" ", "_")
+    results_folder = f"data/denoise_results/{addpart_method}/{prompt_filename}_seed{seed}"
+    os.makedirs(results_folder, exist_ok=True)
+    for addpart_level in range(20):
+        # Don't need multiple seeds for non-noisy methods like score
+        end_seed = seed if addpart_method=="score" else seed+14
+        for cseed in range(seed, end_seed+1):
+            generator = torch.Generator(device).manual_seed(cseed)
+            particles = denoise_particles(config, generator, num_particles=num_samples, 
+                                        addpart_level=addpart_level, addpart_step_size=step_size, 
+                                        addpart_steps=num_steps, addpart_method=addpart_method)
+            pil_images = []
+            for l in particles:
+                image = output_to_img(decode_latent(l, pipe.vae))
+                images = (image * 255).round().astype("uint8")
+                pil_images.append([Image.fromarray(image) for image in images][0])
 
-grid = image_grid(pil_images,1,len(particles))
-
-file_step_size = str(step_size).replace(".","_")
-filename = "data/test.png"
-grid.save(filename)
+            grid = image_grid(pil_images,1,len(particles))
+            
+            file_step_size = str(step_size).replace(".","_")
+            filename = os.path.join(results_folder, f"lvl{addpart_level}_seed{seed}_stepseed{cseed}_nsteps{num_steps}_stepsz{file_step_size}.png")
+            grid.save(filename)

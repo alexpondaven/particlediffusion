@@ -3,3 +3,4 @@
 *.npz
 *.pdf
 */__pycache__
+*.onnx

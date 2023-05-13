@@ -14,7 +14,7 @@ def init_weights(m):
 
 # CNN model
 class CNN64(nn.Module):
-    def __init__(self):
+    def __init__(self, relu=True):
         super().__init__()
         self.conv1 = nn.Conv2d(4, 8, kernel_size=3, stride=2, padding=1)
         self.conv2 = nn.Conv2d(8, 8, kernel_size=3, stride=2, padding=1)
@@ -22,7 +22,10 @@ class CNN64(nn.Module):
         self.conv4 = nn.Conv2d(16, 16, kernel_size=3, stride=2, padding=1)
         self.conv5 = nn.Conv2d(16, 32, kernel_size=3, stride=2, padding=1)
         self.conv6 = nn.Conv2d(32, 64, kernel_size=2, stride=1, padding=0)
-        self.act = nn.ReLU()
+        if relu:
+            self.act = nn.ReLU()
+        else:
+            self.act = nn.Identity()
 
     def forward(self, x):
         # input is 1x4x64x64
@@ -69,8 +72,26 @@ class CNN16(nn.Module):
         return x.squeeze()
 
 class Average(nn.Module):
-    def __init__(self):
-        super().__init__()
-    
     def forward(self, x):
-        return torch.mean(x)
+        return torch.mean(x).reshape(1)
+
+class SoftBoundedAverage(nn.Module):
+    def forward(self, x):
+        # torch.tanh or torch.sigmoid
+        return torch.tanh(torch.mean(x)).reshape(1)
+
+class HardBoundedAverage(nn.Module):
+    def forward(self, x):
+        # TODO
+        return torch.tanh(torch.mean(x)).reshape(1)
+
+class VAEAverage(nn.Module):
+    def __init__(self, vae):
+        super().__init__()
+        self.vae = vae
+    
+    def forward(self, latents):
+        latents = 1 / self.vae.config.scaling_factor * latents
+        image = self.vae.decode(latents).sample
+        image = (image / 2 + 0.5).clamp(0, 1)
+        return image.mean(axis=(0,2,3))

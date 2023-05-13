@@ -27,7 +27,8 @@ def latent_to_img(latent_list):
 def decode_latent(latent, model):
     # Latent -> VAE -> ImgOutput
     # scale and decode the image latents with vae
-    latents = 1 / 0.18215 * latent
+    scaling_factor = 0.18215 # pipe.vae.config.scaling_factor
+    latents = 1 / scaling_factor * latent
     with torch.no_grad():
         image = model.decode(latents).sample
     return image
