@@ -4,7 +4,7 @@ Embedding model for 64x64x4 latents of SD2
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import autograd.numpy as np
+# import autograd.numpy as np
 
 def init_weights(m):
     # Kaiming initialisation used in "A Random CNN Sees Objects" paper
@@ -75,6 +75,10 @@ class Average(nn.Module):
     def forward(self, x):
         return torch.mean(x).reshape(1)
 
+class AverageDim(nn.Module):
+    def forward(self, x):
+        return torch.mean(x, axis=(0,2,3))
+
 class SoftBoundedAverage(nn.Module):
     def forward(self, x):
         # torch.tanh or torch.sigmoid
@@ -95,3 +99,4 @@ class VAEAverage(nn.Module):
         image = self.vae.decode(latents).sample
         image = (image / 2 + 0.5).clamp(0, 1)
         return image.mean(axis=(0,2,3))
+        

@@ -167,6 +167,7 @@ def spread(particles):
     
     return spread
 
+# Particle diffusion
 def correct_particles(
     particles,
     sigma,
@@ -178,7 +179,7 @@ def correct_particles(
     step_size=0.2,
     model=None,
     kernel=None,
-    phi_history_size=20
+    phi_history_size=100
     ):
     """ At certain noise scale (step t), apply correction steps to all particles
         particles: N particles in the diffusion process
@@ -231,9 +232,9 @@ def denoise_particles(
     config,
     generator,
     correction_levels=[],
-    correction_steps=1,
-    correction_step_size=0.2,
-    correction_method="langevin",
+    correction_steps=[],
+    correction_step_size="auto",
+    correction_method=["langevin"],
     addpart_level=0,
     addpart_steps=1,
     addpart_step_size=0.2,
@@ -244,9 +245,9 @@ def denoise_particles(
     device="cuda",
 ):
     """ General function to take steps and add particles at different noise levels of diffusion
-        correction_levels (int or List[int]): noise level indices to do correction steps in
-        correction_steps (int or List[int]): number of correction steps to take in each noise level
-        correction_method (str or List[str]): method of correction e.g. random, langevin, score 
+        correction_levels (List[int]): noise level indices to do correction steps in
+        correction_steps (List[int]): number of correction steps to take in each noise level
+        correction_method (List[str]): method of correction e.g. random, langevin, score, repulsive
         addpart_level (int): noise level index to add particles in
         addpart_steps (int): number of steps taken between particles
         addpart_method (str): method of steps for adding particles e.g. random, langevin, score (NOT repulsive)
@@ -275,7 +276,7 @@ def denoise_particles(
         if i==addpart_level:
             for _ in range(num_particles-1):
                 new_particle = correct_particles(
-                    [particles[-1]], 
+                    [particles[0]], 
                     sigma, 
                     t, 
                     correction_steps=addpart_steps, 
@@ -290,20 +291,27 @@ def denoise_particles(
             print(f"Initial spread: SD - {spread(particles)} embedding - {spread([model(particle) for particle in particles])}")
         
         # Correction steps
-        if i in correction_levels:
-            particles = correct_particles(
-                particles, 
-                sigma, 
-                t, 
-                correction_steps, 
-                correction_method=correction_method, 
-                config=config, 
-                generator=generator, 
-                step_size=correction_step_size, 
-                model=model, 
-                kernel=kernel
-            )
-        
+        for idx, correction_level in enumerate(correction_levels):
+            if i==correction_level:
+                print(idx)
+                # Automatic step_size using sigmas
+                if correction_step_size=="auto":
+                    correction_step_size = sigma * (sigma - sigmas[step_index + 1]) / correction_steps[idx]
+                    print(correction_step_size.item())
+
+                particles = correct_particles(
+                    particles, 
+                    sigma, 
+                    t, 
+                    correction_steps[idx], 
+                    correction_method=correction_method[idx], 
+                    config=config, 
+                    generator=generator, 
+                    step_size=correction_step_size, 
+                    model=model, 
+                    kernel=kernel
+                )
+            
         # Move to next marginal in diffusion
         for n in range(len(particles)):
             score = get_score(particles[n], sigma, t, config)

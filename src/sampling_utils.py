@@ -88,16 +88,16 @@ def repulsive_step_parallel(
             repulsive = torch.einsum('i,ijklm->jklm',kernel_grad_sum[:,i-nparticles], grads[i]) / nparticles
 
             # (debug) Get repulsion norm
-            repulsive_norm = torch.norm(repulsive.reshape(repulsive.shape[0], -1), dim=-1).mean()
-            score_norm = torch.norm(scores[i].reshape(scores[i].shape[0], -1), dim=-1).mean()
-            repulsive_scale = snr * score_norm / repulsive_norm
-            print(repulsive_norm.item())
+            # repulsive_norm = torch.norm(repulsive.reshape(repulsive.shape[0], -1), dim=-1).mean()
+            # score_norm = torch.norm(scores[i].reshape(scores[i].shape[0], -1), dim=-1).mean()
+            # repulsive_scale = snr * score_norm / repulsive_norm
+            # print(repulsive_norm.item())
 
             # (debug) Save repulsion term
             # torch.save(repulsive, f'repulsive{i}.pt')
 
             # Score + Repulsion
-            new_particle = particles[i] + step_size * (scores[i] - repulsive_scale * repulsive)
+            new_particle = particles[i] + step_size * (scores[i] - 1000*repulsive)
             # ONLY Repulsion
             # new_particle = particles[i] - step_size * (repulsive_scale * repulsive)
             if add_noise:

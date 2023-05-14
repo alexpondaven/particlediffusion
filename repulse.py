@@ -6,20 +6,19 @@ import numpy as np
 import random
 import torch
 from diffusers import StableDiffusionPipeline
-import pandas as pd
 import argparse
 from PIL import Image
 
 from src.visualise import image_grid, latent_to_img, decode_latent, output_to_img
 from src.kernel import RBF
-from src.embedding import CNN, init_weights
+from src.embedding import CNN16, CNN64, Average, AverageDim, VAEAverage, init_weights
 from src.score_utils import get_sigmas, get_score_input, denoise_particles
 
 # Arguments
 parser = argparse.ArgumentParser(description="Running diversity steps experiment.")
 # Initial latent info
 parser.add_argument("--prompt", type=str, default="", help="prompt")
-parser.add_argument("--seed", type=int, default=0, help="random seed")
+parser.add_argument("--seed", type=int, default=1024, help="random seed")
 
 # Diversification method
 parser.add_argument("--method", type=str, default="langevin", help="random, langevin, or repulsive")
@@ -50,25 +49,24 @@ device="cuda"
 # results_folder = f"../data/{method}/{prompt_filename}_{seed}/"
 # filename = f"{noise_level}_{num_steps}_{step_size}"
 
-if args.kernel == "rbf":
-    Kernel = RBF
-
-if args.model =="rcnn":
-    # Random CNN
-    model_path = "model.pt"
-    net = CNN()
-    net.load_state_dict(torch.load(model_path))
-    net.to(torch.device("cuda"))
-
-
 # Using 512x512 resolution
 model_id = "stabilityai/stable-diffusion-2-base"
-pipe = StableDiffusionPipeline.from_pretrained(model_id)
-device = "cuda"
-pipe = pipe.to(device)
-pipe.safety_checker = None
+# model_id = "CompVis/stable-diffusion-v1-4"
 
-prompt = "a black cat"
+# tf32 faster computation with Ampere
+torch.backends.cuda.matmul.allow_tf32 = True
+device = "cuda"
+dtype=torch.float32
+pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=dtype)
+# pipe = pipe.to(device)
+pipe.safety_checker = None
+pipe.enable_attention_slicing() # NOTE: 10% slower inference, but big memory savings
+# pipe.enable_sequential_cpu_offload() # NOTE: May slow down inference a lot
+pipe.enable_vae_slicing() # TODO: Try to give batches to VAE
+pipe.enable_model_cpu_offload()
+pipe.enable_xformers_memory_efficient_attention()
+
+prompt = "beautiful forest"
 config = {
     "pipe": pipe,
     "height": 512,
@@ -98,26 +96,30 @@ config = {**config,
           }
 
 # Denoise
-for addpart_method in ["langevin", "random", "score"]: #["langevin"]:
-    prompt_filename = prompt.replace(" ", "_")
-    results_folder = f"data/denoise_results/{addpart_method}/{prompt_filename}_seed{seed}"
-    os.makedirs(results_folder, exist_ok=True)
-    for addpart_level in range(20):
-        # Don't need multiple seeds for non-noisy methods like score
-        end_seed = seed if addpart_method=="score" else seed+14
-        for cseed in range(seed, end_seed+1):
-            generator = torch.Generator(device).manual_seed(cseed)
-            particles = denoise_particles(config, generator, num_particles=num_samples, 
-                                        addpart_level=addpart_level, addpart_step_size=step_size, 
-                                        addpart_steps=num_steps, addpart_method=addpart_method)
-            pil_images = []
-            for l in particles:
-                image = output_to_img(decode_latent(l, pipe.vae))
-                images = (image * 255).round().astype("uint8")
-                pil_images.append([Image.fromarray(image) for image in images][0])
+seed=1024
+generator = torch.Generator("cuda").manual_seed(seed)
+# Embedding model for repulsive force
+# model = CNN16(relu=False)
+# model_path = "model16.pt"
+# model.load_state_dict(torch.load(model_path))
+# model.to(torch.device("cuda"))
+# model=VAEAverage(vae=pipe.vae)
+model=AverageDim()
+# model=SoftBoundedAverage()
+# Denoise
+particles = denoise_particles(config, generator, num_particles=5, 
+                                correction_levels=[1], 
+                                correction_steps=[100], 
+                                correction_method=["repulsive"], 
+                                correction_step_size="auto",
+                                model=model)
+pil_images = []
+for l in particles:
+    image = output_to_img(decode_latent(l, pipe.vae))
+    images = (image * 255).round().astype("uint8")
+    pil_images.append([Image.fromarray(image) for image in images][0])
 
-            grid = image_grid(pil_images,1,len(particles))
-            
-            file_step_size = str(step_size).replace(".","_")
-            filename = os.path.join(results_folder, f"lvl{addpart_level}_seed{seed}_stepseed{cseed}_nsteps{num_steps}_stepsz{file_step_size}.png")
-            grid.save(filename)
+grid = image_grid(pil_images,1,len(particles))
+
+filename = "data/out.png"
+grid.save(filename)

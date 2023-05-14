@@ -38,7 +38,7 @@ importlib-metadata==6.0.0
 ipykernel==6.19.4
 ipython==8.8.0
 jax==0.4.1
-jaxlib==0.4.1+cuda11.cudnn86
+# jaxlib==0.4.1+cuda11.cudnn86
 jedi==0.18.2
 jupyter-client==7.4.8
 jupyter-core==5.1.2
