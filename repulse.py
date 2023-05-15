@@ -73,7 +73,7 @@ config = {
     "width": 512,
     "num_inference_steps": 20,
     "num_train_timesteps": 1000,
-    "batch_size": 1,
+    "batch_size": 50,
     "cfg": 8,
     "beta_start": 0.00085,
     "beta_end": 0.012,
@@ -107,19 +107,19 @@ generator = torch.Generator("cuda").manual_seed(seed)
 model=AverageDim()
 # model=SoftBoundedAverage()
 # Denoise
-particles = denoise_particles(config, generator, num_particles=5, 
+particles = denoise_particles(config, generator, num_particles=100, 
                                 correction_levels=[1], 
-                                correction_steps=[100], 
+                                correction_steps=[20], 
                                 correction_method=["repulsive"], 
                                 correction_step_size="auto",
                                 model=model)
-pil_images = []
-for l in particles:
-    image = output_to_img(decode_latent(l, pipe.vae))
-    images = (image * 255).round().astype("uint8")
-    pil_images.append([Image.fromarray(image) for image in images][0])
 
-grid = image_grid(pil_images,1,len(particles))
+images = output_to_img(decode_latent(particles, pipe.vae))
+images = (images * 255).round().astype("uint8")
+pil_images = [Image.fromarray(image) for image in images]
+
+grid = image_grid(pil_images,10,len(particles)//10)
+grid
 
 filename = "data/out.png"
 grid.save(filename)

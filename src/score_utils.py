@@ -68,7 +68,7 @@ def scale_input(sample, sigma):
     sample = sample / ((sigma**2 + 1) ** 0.5)
     return sample
 
-def get_score(sample, sigma, t, config):
+def get_score(samples, sigma, t, config):
     """
     Get current ∇_x p(x|sigma)
         sample: x
@@ -76,27 +76,36 @@ def get_score(sample, sigma, t, config):
         t: timestep for that noise level
         config
     """
-
-    # expand latents for cfg to avoid 2 forward passes
-    latent_model_input = torch.cat([sample] * 2)
-    latent_model_input = scale_input(latent_model_input, sigma)
-
-    text_embeddings = config['text_embeddings'].repeat(sample.shape[0],1,1)
-    # predict noise residual
-    with torch.no_grad():
-        noise_pred = config['pipe'].unet(latent_model_input, t, encoder_hidden_states=text_embeddings).sample
+    batch_size = config['batch_size']
+    if len(samples) % batch_size != 0:
+        print("ERROR: Number of particles must be divisible by batch size")
+        return
     
-    # perform guidance
-    noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
-    noise_pred = noise_pred_uncond + config['cfg'] * (noise_pred_text - noise_pred_uncond)
+    scores = []
+    for i in range(0,len(samples), batch_size):
+        sample = samples[i:i+batch_size]
+        # expand latents for cfg to avoid 2 forward passes
+        latent_model_input = torch.cat([sample] * 2)
+        latent_model_input = scale_input(latent_model_input, sigma)
 
-    # D (pred_original_sample)
-    D = sample - sigma * noise_pred
+        text_embeddings = torch.stack([config['text_embeddings'][0]] * batch_size + [config['text_embeddings'][1]] * batch_size)
+        #config['text_embeddings'].repeat(sample.shape[0],1,1)
+        # predict noise residual
+        with torch.no_grad():
+            noise_pred = config['pipe'].unet(latent_model_input, t, encoder_hidden_states=text_embeddings).sample
+        
+        # perform guidance
+        noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
+        noise_pred = noise_pred_uncond + config['cfg'] * (noise_pred_text - noise_pred_uncond)
 
-    # score
-    score = (D - sample) / (sigma**2)
+        # D (pred_original_sample)
+        D = sample - sigma * noise_pred
 
-    return score
+        # score
+        score = (D - sample) / (sigma**2)
+        scores.append(score)
+
+    return torch.cat(scores)
       
 def step_score(
         sample: torch.FloatTensor,
@@ -184,7 +193,7 @@ def correct_particles(
     step_size=0.2,
     model=None,
     kernel=None,
-    phi_history_size=100
+    
     ):
     """ At certain noise scale (step t), apply correction steps to all particles
         particles: N particles in the diffusion process
@@ -194,20 +203,19 @@ def correct_particles(
         TODO: Make sampler factory class
     """
     if correction_method=="random":
-        new_particles = random_step(particles, correction_steps, generator, step_size=step_size)
+        particles = random_step(particles, correction_steps, generator, step_size=step_size)
     elif correction_method=="repulsive":
         # Parallel particles
-        phi_history = deque([], phi_history_size)
+        phi_history = None
         for i in range(correction_steps):
-            scores = [get_score(particle, sigma, t, config) for particle in particles]
+            scores = get_score(particles, sigma, t, config)
             particles = repulsive_step_parallel(particles, scores, phi_history, model, kernel, generator, step_size=step_size)
-            print(f"Correction {i} spread: SD - {spread(particles)} embedding - {spread([model(particle) for particle in particles])}")
-        new_particles = particles
+            with torch.no_grad():
+                print(f"Correction {i} spread: SD - {spread(particles)} embedding - {spread(model(particles))}")
 
-    elif correction_method=="repulsive_series":
-        # WIP: Update particles one at a time
+    # elif correction_method=="repulsive_series":
+        # TODO: Update particles one at a time
         # phi_history = deque([], phi_history_size)
-
         # # Add particles 
         # for particle in particles:
         #     phi_grad = get_phi_grad(particle, model)
@@ -218,20 +226,17 @@ def correct_particles(
         #         score = get_score(particles[n], sigma, t, config)
         #         particles[n] = repulsive_step(particles[n], scores, phi_grad, phi_history, model, kernel, generator, step_size=step_size)
         #         print(f"Correction {i} spread: SD - {spread(particles)} embedding - {spread([model(particle) for particle in particles])}")
-        new_particles = particles
+        # new_particles = particles
 
     elif correction_method=="langevin" or correction_method=="score":
-        new_particles = []
         add_noise = (correction_method=="langevin")
-        for particle in particles:
-            for _ in range(correction_steps):
-                score = get_score(particle, sigma, t, config)
-                particle = langevin_step(particle, score, generator, step_size=step_size, add_noise=add_noise)
-            new_particles.append(particle)
+        for _ in range(correction_steps):
+            score = get_score(particles, sigma, t, config)
+            particles = langevin_step(particles, score, generator, step_size=step_size, add_noise=add_noise)
     else:
         print(f"ERROR: Correction step type: '{correction_method}' not implemented yet")
             
-    return new_particles
+    return particles
 
 def denoise_particles(
     config,
@@ -269,9 +274,9 @@ def denoise_particles(
         return None
     # standard deviation of the initial noise distribution
     sigmas = config['sigmas']
-    latents = config['init_latents'] * sigmas.max()
 
-    particles = [latents]
+    # Denoise particles
+    particles = config['init_latents'] * sigmas.max() # 1x4x64x64
     for i, t in enumerate(tqdm(config['timesteps'])):
         t = t.to(device)
         step_index = (config['timesteps'] == t).nonzero().item()
@@ -279,21 +284,20 @@ def denoise_particles(
 
         # Create particles
         if i==addpart_level:
-            for _ in range(num_particles-1):
-                new_particle = correct_particles(
-                    [particles[0]], 
-                    sigma, 
-                    t, 
-                    correction_steps=addpart_steps, 
-                    correction_method=addpart_method, 
-                    config=config, 
-                    generator=generator, 
-                    step_size=addpart_step_size, 
-                    model=model, 
-                    kernel=kernel
-                )
-                particles.append(new_particle[0])
-            print(f"Initial spread: SD - {spread(particles)} embedding - {spread([model(particle) for particle in particles])}")
+            # TODO: Optimise having to re-calculate gradient for duplicate particles each time
+            particles = torch.concat([particles] + [particles[0].unsqueeze(0)] * (num_particles-1))
+            particles = correct_particles(
+                particles, 
+                sigma, 
+                t, 
+                correction_steps=addpart_steps, 
+                correction_method=addpart_method,
+                config=config, 
+                generator=generator, 
+                step_size=addpart_step_size, 
+                model=model, 
+                kernel=kernel
+            )
         
         # Correction steps
         for idx, correction_level in enumerate(correction_levels):
@@ -318,8 +322,7 @@ def denoise_particles(
                 )
             
         # Move to next marginal in diffusion
-        for n in range(len(particles)):
-            score = get_score(particles[n], sigma, t, config)
-            particles[n] = step_score(particles[n], score, sigmas, step_index)
+        scores = get_score(particles, sigma, t, config)
+        particles = step_score(particles, scores, sigmas, step_index)
     
     return particles
