@@ -40,6 +40,9 @@ def get_score_input(prompt, config, generator, device="cuda", dtype=torch.float3
     height = config['height']
     width = config['width']
 
+    # TODO: Could also create batch_size init_latents to start at many positions in prior - use for experiments
+    batch_size = 1
+
     text_input = pipe.tokenizer(prompt, padding="max_length", max_length=pipe.tokenizer.model_max_length, truncation=True, return_tensors="pt")
     max_length = text_input.input_ids.shape[-1]
     uncond_input = pipe.tokenizer([""] * batch_size, padding="max_length", max_length=pipe.tokenizer.model_max_length, truncation=True, return_tensors="pt")
@@ -73,13 +76,15 @@ def get_score(sample, sigma, t, config):
         t: timestep for that noise level
         config
     """
+
     # expand latents for cfg to avoid 2 forward passes
     latent_model_input = torch.cat([sample] * 2)
     latent_model_input = scale_input(latent_model_input, sigma)
 
+    text_embeddings = config['text_embeddings'].repeat(sample.shape[0],1,1)
     # predict noise residual
     with torch.no_grad():
-        noise_pred = config['pipe'].unet(latent_model_input, t, encoder_hidden_states=config['text_embeddings']).sample
+        noise_pred = config['pipe'].unet(latent_model_input, t, encoder_hidden_states=text_embeddings).sample
     
     # perform guidance
     noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)

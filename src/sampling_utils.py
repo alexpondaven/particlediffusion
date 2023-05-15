@@ -4,19 +4,19 @@
 import torch
 
 def langevin_step(
-        sample: torch.FloatTensor,
-        score,
+        samples,
+        scores,
         generator,
         step_size=0.2,
         add_noise=True,
         device="cuda",
     ):
         """Take noisy step towards score"""
-        prev_sample = sample + step_size * score
+        new_samples = samples + step_size * scores
         if add_noise:
-            noise = torch.randn(sample.shape, layout=sample.layout, device=device, generator=generator).to(device)
-            prev_sample += ((step_size * 2) ** 0.5) * noise
-        return prev_sample
+            noise = torch.randn(samples.shape, layout=samples.layout, device=device, generator=generator).to(device)
+            new_samples += ((step_size * 2) ** 0.5) * noise
+        return new_samples
         
 
 def random_step(
@@ -30,12 +30,9 @@ def random_step(
             samples (List[torch.FloatTensor]): List of particles to take ranodm steps
             correction_step: number of steps (or equivalently the amount of noise added)
         """
-        prev_samples = []
-        for sample in samples:
-            noise = torch.randn(sample.shape, layout=sample.layout, device=device, generator=generator).to(device)
-            prev_sample = sample + ((correction_steps * step_size * 2) ** 0.5) * noise
-            prev_samples.append(prev_sample)
-        return prev_samples
+        noise = torch.randn(samples.shape, layout=samples.layout, device=device, generator=generator).to(device)
+        new_samples = samples + ((correction_steps * step_size * 2) ** 0.5) * noise
+        return new_samples
 
 def repulsive_step_parallel(
         particles,

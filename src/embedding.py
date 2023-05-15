@@ -28,19 +28,19 @@ class CNN64(nn.Module):
             self.act = nn.Identity()
 
     def forward(self, x):
-        # input is 1x4x64x64
-        x = self.conv1(x) # 1x8x32x32
+        # input is Nx4x64x64
+        x = self.conv1(x) # Nx8x32x32
         x = self.act(x)
-        x = self.conv2(x) # 1x8x16x16
+        x = self.conv2(x) # Nx8x16x16
         x = self.act(x)
-        x = self.conv3(x) # 1x16x8x8
+        x = self.conv3(x) # Nx16x8x8
         x = self.act(x)
-        x = self.conv4(x) # 1x16x4x4
+        x = self.conv4(x) # Nx16x4x4
         x = self.act(x)
-        x = self.conv5(x) # 1x32x2x2
+        x = self.conv5(x) # Nx32x2x2
         x = self.act(x)
-        x = self.conv6(x) # 1x64x1x1
-        return x.squeeze()
+        x = self.conv6(x) # Nx64x1x1
+        return x.squeeze(2,3)
 
 class CNN16(nn.Module):
     def __init__(self, relu=True):
@@ -57,37 +57,37 @@ class CNN16(nn.Module):
             self.act = nn.Identity()
 
     def forward(self, x):
-        # input is 1x4x64x64
-        x = self.conv1(x) # 1x8x32x32
+        # input is Nx4x64x64
+        x = self.conv1(x) # Nx8x32x32
         x = self.act(x)
-        x = self.conv2(x) # 1x8x16x16
+        x = self.conv2(x) # Nx8x16x16
         x = self.act(x)
-        x = self.conv3(x) # 1x8x8x8
+        x = self.conv3(x) # Nx8x8x8
         x = self.act(x)
-        x = self.conv4(x) # 1x16x4x4
+        x = self.conv4(x) # Nx16x4x4
         x = self.act(x)
-        x = self.conv5(x) # 1x16x2x2
+        x = self.conv5(x) # Nx16x2x2
         x = self.act(x)
-        x = self.conv6(x) # 1x16x1x1
-        return x.squeeze()
+        x = self.conv6(x) # Nx16x1x1
+        return x.squeeze(2,3)
 
 class Average(nn.Module):
     def forward(self, x):
-        return torch.mean(x).reshape(1)
+        return torch.mean(x, axis=(1,2,3))
 
 class AverageDim(nn.Module):
     def forward(self, x):
-        return torch.mean(x, axis=(0,2,3))
+        return torch.mean(x, axis=(2,3))
 
 class SoftBoundedAverage(nn.Module):
     def forward(self, x):
         # torch.tanh or torch.sigmoid
-        return torch.tanh(torch.mean(x)).reshape(1)
+        return torch.tanh(torch.mean(x, axis=(1,2,3)))
 
 class HardBoundedAverage(nn.Module):
     def forward(self, x):
         # TODO
-        return torch.tanh(torch.mean(x)).reshape(1)
+        return torch.tanh(torch.mean(x, axis=(1,2,3)))
 
 class VAEAverage(nn.Module):
     def __init__(self, vae):
@@ -98,5 +98,5 @@ class VAEAverage(nn.Module):
         latents = 1 / self.vae.config.scaling_factor * latents
         image = self.vae.decode(latents).sample
         image = (image / 2 + 0.5).clamp(0, 1)
-        return image.mean(axis=(0,2,3))
+        return torch.mean(image, axis=(2,3))
         
