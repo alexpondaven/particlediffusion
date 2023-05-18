@@ -36,20 +36,20 @@ def get_sigmas(config, device="cuda"):
 def get_score_input(prompt, config, generator, device="cuda", dtype=torch.float32):
     """Return text embedding and initial latent i.e. the input to the diffusion model"""
     pipe = config['pipe']
-    batch_size = config['batch_size']
+    batch_size = config['num_init_latents']
     height = config['height']
     width = config['width']
 
-    # TODO: Could also create batch_size init_latents to start at many positions in prior - use for experiments
-    batch_size = 1
+    if type(prompt)!=list:
+        prompt = [prompt]*batch_size
 
     text_input = pipe.tokenizer(prompt, padding="max_length", max_length=pipe.tokenizer.model_max_length, truncation=True, return_tensors="pt")
-    max_length = text_input.input_ids.shape[-1]
+    # max_length = text_input.input_ids.shape[-1]
     uncond_input = pipe.tokenizer([""] * batch_size, padding="max_length", max_length=pipe.tokenizer.model_max_length, truncation=True, return_tensors="pt")
 
     with torch.no_grad():
-        text_embeddings = pipe.text_encoder(text_input.input_ids.to(device))[0]
         uncond_embeddings = pipe.text_encoder(uncond_input.input_ids.to(device))[0]
+        text_embeddings = pipe.text_encoder(text_input.input_ids.to(device))[0]
 
     text_embeddings = torch.cat([uncond_embeddings, text_embeddings])
 
@@ -77,19 +77,28 @@ def get_score(samples, sigma, t, config):
         config
     """
     batch_size = config['batch_size']
+    n = len(samples)
     if len(samples) % batch_size != 0:
         print("ERROR: Number of particles must be divisible by batch size")
         return
-    
+
     scores = []
-    for i in range(0,len(samples), batch_size):
+    for i in range(0, n, batch_size):
         sample = samples[i:i+batch_size]
         # expand latents for cfg to avoid 2 forward passes
         latent_model_input = torch.cat([sample] * 2)
         latent_model_input = scale_input(latent_model_input, sigma)
 
-        text_embeddings = torch.stack([config['text_embeddings'][0]] * batch_size + [config['text_embeddings'][1]] * batch_size)
-        #config['text_embeddings'].repeat(sample.shape[0],1,1)
+        if config["num_init_latents"]==1:
+            # One initial latent
+            text_embeddings = torch.stack([config['text_embeddings'][0]] * batch_size + [config['text_embeddings'][1]] * batch_size)
+        elif config["num_init_latents"]==n:
+            # All latents initialised already
+            text_embeddings = torch.cat([config['text_embeddings'][i:i+batch_size]] + [config['text_embeddings'][n+i:n+i+batch_size]])
+        else:
+            print("ERROR: Not implemented num_init_latents != 1 or numparticles")
+            return
+
         # predict noise residual
         with torch.no_grad():
             noise_pred = config['pipe'].unet(latent_model_input, t, encoder_hidden_states=text_embeddings).sample

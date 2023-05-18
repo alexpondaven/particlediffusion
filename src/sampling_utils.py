@@ -41,10 +41,11 @@ def repulsive_step_parallel(
         model,
         K,
         generator,
+        repulse=True,
         add_noise = True,
         step_size=0.2,
         snr=1, # strength of repulsive term
-        phi_history_size=100,
+        phi_history_size=50,
         device="cuda",
     ):
         """ Take repulsive langevin step. 
@@ -53,6 +54,8 @@ def repulsive_step_parallel(
             phi_history: List of previous phi particles used
             model: embedding model for latents to smaller dim space
             K: Kernel function
+            generator: generator
+            repulse: whether to repulse with repulsion term, or condition (repulse=False) by going in the opposite direction
         
         """
         # Checks
@@ -60,11 +63,12 @@ def repulsive_step_parallel(
         if n<=1:
              print("WARNING: Cannot repulse 1 particle on its own, add more particles")
              return
-        if n > phi_history_size:
+        if n < phi_history_size:
             phi_history_size=n
         
         # Embed latent to smaller dimension
-        phi = model(particles)
+        with torch.no_grad():
+            phi = model(particles)
 
         # Add to phi_history FIFO
         if phi_history:
@@ -80,7 +84,7 @@ def repulsive_step_parallel(
         # TODO: Should grad be found with all particles or each particle separate... I only need the grad of a phi with its own particle, not every other one
         grads = torch.autograd.functional.jacobian(
             model, 
-            particles.clone().detach().requires_grad_()
+            particles #.clone().detach().requires_grad_(), 
         )
         
         # Set bandwidth of RBF kernel with median heuristic
@@ -107,7 +111,10 @@ def repulsive_step_parallel(
             # torch.save(repulsive, f'repulsive{i}.pt')
 
             # Score + Repulsion
-            new_particle = particles[i] + step_size * (scores[i] - 100*repulsive)
+            if repulse:
+                new_particle = particles[i] + step_size * (scores[i] - 100*repulsive)
+            else:
+                new_particle = particles[i] + step_size * (scores[i] + 100*repulsive)
             # ONLY Repulsion
             # new_particle = particles[i] - step_size * (repulsive_scale * repulsive)
             if add_noise:

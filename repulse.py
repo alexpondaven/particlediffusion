@@ -30,7 +30,7 @@ parser.add_argument("--step_size", type=float, default=0.1, help="fixed stepsize
 # Particle/repulsive method arguments
 parser.add_argument("--nparticles", type=int, default=2, help="no. of particles")
 parser.add_argument("--kernel", type=str, default="rbf", help="kernel")
-parser.add_argument("--model", type=str, default="rcnn", help="embedding model for latents for latent evaluation")
+parser.add_argument("--model", type=str, default="averagedim", help="embedding model for latents for latent evaluation")
 parser.add_argument("--gpu", type=int, default=3, help="gpu")
 
 args = parser.parse_args()
@@ -43,11 +43,8 @@ num_samples = args.num_samples
 step_size = args.step_size
 nparticles = args.nparticles
 device="cuda"
-# device = torch.device(f"cuda:{args.gpu}" if args.gpu != -1 else "cpu")
 
-# prompt_filename = prompt.replace(" ", "_")
-# results_folder = f"../data/{method}/{prompt_filename}_{seed}/"
-# filename = f"{noise_level}_{num_steps}_{step_size}"
+
 
 # Using 512x512 resolution
 model_id = "stabilityai/stable-diffusion-2-base"
@@ -66,14 +63,15 @@ pipe.enable_vae_slicing() # TODO: Try to give batches to VAE
 pipe.enable_model_cpu_offload()
 pipe.enable_xformers_memory_efficient_attention()
 
-prompt = "beautiful forest"
+prompt = "eiffel tower"
 config = {
     "pipe": pipe,
     "height": 512,
     "width": 512,
     "num_inference_steps": 20,
     "num_train_timesteps": 1000,
-    "batch_size": 50,
+    "num_init_latents": 1, # 1 or num_particles
+    "batch_size": 36,
     "cfg": 8,
     "beta_start": 0.00085,
     "beta_end": 0.012,
@@ -95,31 +93,41 @@ config = {**config,
           "text_embeddings": text_embeddings
           }
 
+# Embedding model for repulsive force
+if args.model=="cnn64":
+    model = CNN64(relu=False)
+    model_path = "model.pt"
+    model.load_state_dict(torch.load(model_path))
+    model.to(torch.device("cuda"))
+elif args.model=="cnn16":
+    model = CNN16(relu=False)
+    model_path = "model16.pt"
+    model.load_state_dict(torch.load(model_path))
+    model.to(torch.device("cuda"))
+elif args.model=="vaeaverage":
+    model=VAEAverage(vae=pipe.vae)
+elif args.model=="averagedim":
+    model=AverageDim()
+elif args.model=="average":
+    model=Average()
+
 # Denoise
 seed=1024
 generator = torch.Generator("cuda").manual_seed(seed)
-# Embedding model for repulsive force
-# model = CNN16(relu=False)
-# model_path = "model16.pt"
-# model.load_state_dict(torch.load(model_path))
-# model.to(torch.device("cuda"))
-# model=VAEAverage(vae=pipe.vae)
-model=AverageDim()
-# model=SoftBoundedAverage()
-# Denoise
-particles = denoise_particles(config, generator, num_particles=100, 
-                                correction_levels=[1], 
-                                correction_steps=[20], 
-                                correction_method=["repulsive"], 
+particles = denoise_particles(config, generator, num_particles=36, 
+                                correction_levels=[0,1,2,3], 
+                                correction_steps=[5,8,10,100], 
+                                correction_method=[method]*4, # TODO: Remember to set repulse=True
                                 correction_step_size="auto",
+                                # addpart_level=None,
                                 model=model)
 
 images = output_to_img(decode_latent(particles, pipe.vae))
 images = (images * 255).round().astype("uint8")
 pil_images = [Image.fromarray(image) for image in images]
 
-grid = image_grid(pil_images,10,len(particles)//10)
+grid = image_grid(pil_images,6,len(particles)//6)
 grid
 
-filename = "data/out.png"
+filename = f"data/out_{method}.png"
 grid.save(filename)

@@ -73,7 +73,7 @@ class CNN16(nn.Module):
 
 class Average(nn.Module):
     def forward(self, x):
-        return torch.mean(x, axis=(1,2,3))
+        return torch.mean(x, axis=(1,2,3)).unsqueeze(-1)
 
 class AverageDim(nn.Module):
     def forward(self, x):
@@ -82,14 +82,15 @@ class AverageDim(nn.Module):
 class SoftBoundedAverage(nn.Module):
     def forward(self, x):
         # torch.tanh or torch.sigmoid
-        return torch.tanh(torch.mean(x, axis=(1,2,3)))
+        return torch.tanh(torch.mean(x, axis=(1,2,3)).unsqueeze(-1))
 
 class HardBoundedAverage(nn.Module):
     def forward(self, x):
         # TODO
-        return torch.tanh(torch.mean(x, axis=(1,2,3)))
+        return torch.tanh(torch.mean(x, axis=(1,2,3)).unsqueeze(-1))
 
 class VAEAverage(nn.Module):
+    # VAE is too much gradient memory
     def __init__(self, vae):
         super().__init__()
         self.vae = vae
@@ -99,4 +100,21 @@ class VAEAverage(nn.Module):
         image = self.vae.decode(latents).sample
         image = (image / 2 + 0.5).clamp(0, 1)
         return torch.mean(image, axis=(2,3))
+
+class Edges(nn.Module):
+    def forward(self, x):
+        return torch.mean(x, axis=(2,3))
+
+class CombineKernel(nn.Module):
+    # Add two kernels
+    def __init__(self, k1, k2):
+        # pass in two models
+        super().__init__()
+        self.k1 = k1
+        self.k2 = k2
+    
+    def forward(self, x):
+        return self.k1(x) + self.k2(x)
+    
+
         
