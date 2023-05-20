@@ -6,6 +6,7 @@ from collections import deque
 from src.sampling_utils import random_step, langevin_step, repulsive_step_parallel
 from src.kernel import RBF
 from src.embedding import CNN64, CNN16, init_weights
+import matplotlib.pyplot as plt
 
 
 ## Initialisation
@@ -33,7 +34,7 @@ def get_sigmas(config, device="cuda"):
     
     return sigmas, timesteps
 
-def get_score_input(prompt, config, generator, device="cuda", dtype=torch.float32):
+def get_score_input(prompt, config, generator, device="cuda", dtype=torch.float32, init_strat="normal"):
     """Return text embedding and initial latent i.e. the input to the diffusion model"""
     pipe = config['pipe']
     batch_size = config['num_init_latents']
@@ -54,11 +55,22 @@ def get_score_input(prompt, config, generator, device="cuda", dtype=torch.float3
     text_embeddings = torch.cat([uncond_embeddings, text_embeddings])
 
     # Init latents
-    init_latents = torch.randn(
-        (batch_size, pipe.unet.in_channels, height//8, width//8),
-        generator=generator,
-        device=device,
-    ).to(dtype)
+    if init_strat=="normal":
+        init_latents = torch.randn(
+            (batch_size, pipe.unet.in_channels, height//8, width//8),
+            generator=generator,
+            device=device,
+        ).to(dtype)
+    elif init_strat=="uniform":
+        lb, ub = -5,5
+        init_latents = torch.rand(
+            (batch_size, pipe.unet.in_channels, height//8, width//8),
+            generator=generator,
+            device=device,
+        ).to(dtype)
+        init_latents = (ub-lb) * init_latents + lb
+    else:
+        print("ERROR: INVALID LATENT INITIALISATION STRATEGY")
     return init_latents, text_embeddings
 
 
@@ -314,7 +326,8 @@ def denoise_particles(
                 print(idx)
                 # Automatic step_size using sigmas
                 if correction_step_size=="auto":
-                    correction_step_size = sigma * (sigma - sigmas[step_index + 1]) / correction_steps[idx]
+                    correction_step_size = sigma**2 / sigmas[0]**2
+                    # correction_step_size = sigma * (sigma - sigmas[step_index + 1]) # / correction_steps[idx]
                     print(correction_step_size.item())
 
                 particles = correct_particles(
@@ -331,7 +344,10 @@ def denoise_particles(
                 )
             
         # Move to next marginal in diffusion
+        # step_size = sigma * (sigma - sigmas[step_index + 1])
         scores = get_score(particles, sigma, t, config)
         particles = step_score(particles, scores, sigmas, step_index)
+        # phi_history = None
+        # particles = repulsive_step_parallel(particles, scores, phi_history, model, kernel, generator, step_size=step_size, add_noise=False)
     
     return particles

@@ -11,7 +11,7 @@ from PIL import Image
 
 from src.visualise import image_grid, latent_to_img, decode_latent, output_to_img
 from src.kernel import RBF
-from src.embedding import CNN16, CNN64, Average, AverageDim, VAEAverage, init_weights
+from src.embedding import CNN16, CNN64, Average, AverageDim, VAEAverage, Edges, init_weights
 from src.score_utils import get_sigmas, get_score_input, denoise_particles
 
 # Arguments
@@ -71,7 +71,7 @@ config = {
     "num_inference_steps": 20,
     "num_train_timesteps": 1000,
     "num_init_latents": 1, # 1 or num_particles
-    "batch_size": 36,
+    "batch_size": 1,
     "cfg": 8,
     "beta_start": 0.00085,
     "beta_end": 0.012,
@@ -85,7 +85,7 @@ random.seed(seed)
 
 # Noise levels
 sigmas, timesteps = get_sigmas(config, device=device)
-init_latents, text_embeddings = get_score_input(prompt, config, generator=generator, device="cuda")
+init_latents, text_embeddings = get_score_input(prompt, config, generator=generator, device="cuda", init_strat="uniform")
 config = {**config,
           "sigmas": sigmas,
           "timesteps": timesteps,
@@ -110,23 +110,25 @@ elif args.model=="averagedim":
     model=AverageDim()
 elif args.model=="average":
     model=Average()
+elif args.model=="edges":
+    model=Edges()
 
 # Denoise
 seed=1024
 generator = torch.Generator("cuda").manual_seed(seed)
-particles = denoise_particles(config, generator, num_particles=36, 
-                                correction_levels=[0,1,2,3], 
-                                correction_steps=[5,8,10,100], 
-                                correction_method=[method]*4, # TODO: Remember to set repulse=True
+particles = denoise_particles(config, generator, num_particles=1, 
+                                correction_levels=[0], 
+                                correction_steps=[100], 
+                                correction_method=[method], # TODO: Remember to set repulse=True
                                 correction_step_size="auto",
-                                # addpart_level=None,
+                                addpart_level=None,
                                 model=model)
 
 images = output_to_img(decode_latent(particles, pipe.vae))
 images = (images * 255).round().astype("uint8")
 pil_images = [Image.fromarray(image) for image in images]
 
-grid = image_grid(pil_images,6,len(particles)//6)
+grid = image_grid(pil_images,1,len(particles))
 grid
 
 filename = f"data/out_{method}.png"

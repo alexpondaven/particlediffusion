@@ -103,7 +103,10 @@ class VAEAverage(nn.Module):
 
 class Edges(nn.Module):
     def forward(self, x):
-        return torch.mean(x, axis=(2,3))
+        # dc = torch.mean(x, axis=(2,3))
+        vert = torch.mean(x[...,32:, :] - x[...,:32,:], axis=(2,3))
+        horz = torch.mean(x[...,:, :32] - x[...,:,32:], axis=(2,3))
+        return torch.cat((vert,horz),axis=1)
 
 class CombineKernel(nn.Module):
     # Add two kernels
