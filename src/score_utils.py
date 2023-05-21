@@ -326,7 +326,7 @@ def denoise_particles(
                 print(idx)
                 # Automatic step_size using sigmas
                 if correction_step_size=="auto":
-                    correction_step_size = sigma**2 / sigmas[0]**2
+                    correction_step_size = 0.1 * sigma**2 #/ sigmas[0]**2
                     # correction_step_size = sigma * (sigma - sigmas[step_index + 1]) # / correction_steps[idx]
                     print(correction_step_size.item())
 

@@ -2,6 +2,7 @@
 # TODO: Have a class for these steps and child classes - factory?
 
 import torch
+from torch.func import jacrev
 
 def langevin_step(
         samples,
@@ -82,10 +83,18 @@ def repulsive_step_parallel(
 
         # Compute gradient ∇_latent (phi) for pushforward gradient computation (shape= (NxE) x (Nx4x64x64)) E is output size of model
         # TODO: Should grad be found with all particles or each particle separate... I only need the grad of a phi with its own particle, not every other one
-        grads = torch.autograd.functional.jacobian(
-            model, 
-            particles #.clone().detach().requires_grad_(), 
-        )
+        # grads = jacrev(model)(particles)
+        # grads = torch.autograd.functional.jacobian(
+        #     model, 
+        #     particles,
+        # )
+
+        # If batch too large
+        grads = []
+        for i in range(n):
+            grad = torch.autograd.functional.jacobian(model, particles[i].unsqueeze(0))
+            grads.append(grad[0,:,0,...])
+        grads = torch.stack(grads)
         
         # Set bandwidth of RBF kernel with median heuristic
         K.bandwidth(phi_history, phi_history)
@@ -99,7 +108,7 @@ def repulsive_step_parallel(
         for i in range(n):
             # Pushforward/Chain rule
             # TODO: Check this multiplication is right
-            repulsive = torch.einsum('i,ijklm->jklm',kernel_grad_sum[:,i-n], grads[i,:,i,...].unsqueeze(1)) / n
+            repulsive = torch.einsum('i,ijklm->jklm',kernel_grad_sum[:,i-n], grads[i,...].unsqueeze(1)) / n
 
             # (debug) Get repulsion norm
             # repulsive_norm = torch.norm(repulsive.reshape(repulsive.shape[0], -1), dim=-1).mean()

@@ -71,7 +71,7 @@ config = {
     "num_inference_steps": 20,
     "num_train_timesteps": 1000,
     "num_init_latents": 1, # 1 or num_particles
-    "batch_size": 1,
+    "batch_size": 2,
     "cfg": 8,
     "beta_start": 0.00085,
     "beta_end": 0.012,
@@ -85,7 +85,7 @@ random.seed(seed)
 
 # Noise levels
 sigmas, timesteps = get_sigmas(config, device=device)
-init_latents, text_embeddings = get_score_input(prompt, config, generator=generator, device="cuda", init_strat="uniform")
+init_latents, text_embeddings = get_score_input(prompt, config, generator=generator, device="cuda", init_strat="normal")
 config = {**config,
           "sigmas": sigmas,
           "timesteps": timesteps,
@@ -116,12 +116,12 @@ elif args.model=="edges":
 # Denoise
 seed=1024
 generator = torch.Generator("cuda").manual_seed(seed)
-particles = denoise_particles(config, generator, num_particles=1, 
-                                correction_levels=[0], 
+particles = denoise_particles(config, generator, num_particles=2, 
+                                correction_levels=[10], 
                                 correction_steps=[100], 
                                 correction_method=[method], # TODO: Remember to set repulse=True
                                 correction_step_size="auto",
-                                addpart_level=None,
+                                # addpart_level=None,
                                 model=model)
 
 images = output_to_img(decode_latent(particles, pipe.vae))
