@@ -126,8 +126,17 @@ class Style(nn.Module):
         self.k = k
     
     def forward(self, x):
+        # Dot product similarity between filters (flattened upper triangular part of Gram matrix)
         filt = self.k(x) # NxF
-        
+        filt = filt.flatten(1)
+        gram = torch.einsum('ni,nj->nij',filt,filt)
+
+        # Flattened upper triangular 
+        sims = []
+        for i in range(len(x)):
+            sim = gram[i][torch.triu_indices(*gram[0].shape).unbind()]
+            sims.append(sim)
+        return torch.stack(sims)
 
 
     

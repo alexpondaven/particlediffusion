@@ -262,11 +262,9 @@ def correct_particles(
 def denoise_particles(
     config,
     generator,
-    correction_levels=[],
-    correction_steps=[],
+    steps,
     correction_step_size=0.1,
     correction_step_type="manual", # or auto
-    correction_method=["langevin"],
     addpart_level=0,
     addpart_steps=1,
     addpart_step_size=0.2,
@@ -277,9 +275,7 @@ def denoise_particles(
     device="cuda",
 ):
     """ General function to take steps and add particles at different noise levels of diffusion
-        correction_levels (List[int]): noise level indices to do correction steps in
-        correction_steps (List[int]): number of correction steps to take in each noise level
-        correction_method (List[str]): method of correction e.g. random, langevin, score, repulsive
+        steps (Dict[List]): queries are noise levels, values are list of tuples (step_method, num_steps)
         correction_step_type (str): "manual" (choose correction_step_size) or "auto" (decided by formula)
         addpart_level (int): noise level index to add particles in
         addpart_steps (int): number of steps taken between particles
@@ -322,22 +318,22 @@ def denoise_particles(
                 kernel=kernel
             )
         
-        # Correction steps
-        for idx, correction_level in enumerate(correction_levels):
-            if i==correction_level:
-                print(idx)
-                # Automatic step_size using sigmas
-                if correction_step_type=="auto":
-                    # correction_step_size =  sigma**2 / sigmas[0]**2
-                    correction_step_size = sigma * (sigma - sigmas[step_index + 1]) # / correction_steps[idx]
-                    print(correction_step_size.item())
+        # Automatic step_size using sigmas
+        if correction_step_type=="auto":
+                # correction_step_size =  sigma**2 / sigmas[0]**2
+                correction_step_size = sigma * (sigma - sigmas[step_index + 1]) # / correction_steps[idx]
+                print(correction_step_size.item())
 
+        # Steps
+        if i in steps:
+            for step_method, num_steps in steps[i]:
+                print(i)
                 particles = correct_particles(
                     particles, 
                     sigma, 
                     t, 
-                    correction_steps[idx], 
-                    correction_method=correction_method[idx], 
+                    num_steps, 
+                    correction_method=step_method, 
                     config=config, 
                     generator=generator, 
                     step_size=correction_step_size, 

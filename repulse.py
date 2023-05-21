@@ -1,6 +1,6 @@
 # Generate samples taking langevin/random/repulsive steps from an initial latent at different noise levels
 import os
-os.environ["CUDA_VISIBLE_DEVICES"]="3"
+os.environ["CUDA_VISIBLE_DEVICES"]="5"
 import yaml
 import numpy as np
 import random
@@ -11,8 +11,9 @@ from PIL import Image
 
 from src.visualise import image_grid, latent_to_img, decode_latent, output_to_img
 from src.kernel import RBF
-from src.embedding import CNN16, CNN64, Average, AverageDim, VAEAverage, Edges, init_weights
+from src.embedding import CNN16, CNN64, Average, AverageDim, VAEAverage, Edges, init_weights, Style
 from src.score_utils import get_sigmas, get_score_input, denoise_particles
+from src.steps import Steps
 
 # Arguments
 parser = argparse.ArgumentParser(description="Running diversity steps experiment.")
@@ -31,6 +32,7 @@ parser.add_argument("--step_size", type=float, default=0.1, help="fixed stepsize
 parser.add_argument("--nparticles", type=int, default=2, help="no. of particles")
 parser.add_argument("--kernel", type=str, default="rbf", help="kernel")
 parser.add_argument("--model", type=str, default="averagedim", help="embedding model for latents for latent evaluation")
+parser.add_argument("--style", action='store_true', help="whether to get style of model")
 parser.add_argument("--gpu", type=int, default=3, help="gpu")
 
 args = parser.parse_args()
@@ -63,7 +65,7 @@ pipe.enable_vae_slicing() # TODO: Try to give batches to VAE
 pipe.enable_model_cpu_offload()
 pipe.enable_xformers_memory_efficient_attention()
 
-prompt = "eiffel tower"
+prompt = "beautiful tree"
 config = {
     "pipe": pipe,
     "height": 512,
@@ -71,7 +73,7 @@ config = {
     "num_inference_steps": 20,
     "num_train_timesteps": 1000,
     "num_init_latents": 1, # 1 or num_particles
-    "batch_size": 50,
+    "batch_size": 32,
     "cfg": 8,
     "beta_start": 0.00085,
     "beta_end": 0.012,
@@ -113,15 +115,20 @@ elif args.model=="average":
 elif args.model=="edges":
     model=Edges()
 
+if args.style:
+    model = Style(model)
+
 # Denoise
 seed=1024
 generator = torch.Generator("cuda").manual_seed(seed)
-numparticles=100
+
+numparticles=64
+steps = Steps()
+steps.add_all(method,2)
+steps.add_list([0,1,2,3],method,[10,10,10,10])
+# steps.add(0,method,10)
 particles = denoise_particles(
-    config, generator, num_particles=numparticles, 
-    correction_levels= np.repeat(list(range(20)),2), 
-    correction_steps=[10,1]*20, 
-    correction_method=['repulsive','score']*20, # TODO: Remember to set repulse=True
+    config, generator, num_particles=numparticles, steps=steps.steps,
     correction_step_type="auto",
     # addpart_level=None,
     model=model
