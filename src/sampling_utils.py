@@ -121,7 +121,7 @@ def repulsive_step_parallel(
 
             # Score + Repulsion
             if repulse:
-                new_particle = particles[i] + step_size * (scores[i] - 100*repulsive)
+                new_particle = particles[i] + step_size * (scores[i] - 10*repulsive)
             else:
                 new_particle = particles[i] + step_size * (scores[i] + 100*repulsive)
             # ONLY Repulsion

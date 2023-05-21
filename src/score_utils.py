@@ -83,7 +83,7 @@ def scale_input(sample, sigma):
 def get_score(samples, sigma, t, config):
     """
     Get current ∇_x p(x|sigma)
-        sample: x
+        sample: x (Nx4x64x64)
         sigma: noise level
         t: timestep for that noise level
         config
@@ -264,7 +264,8 @@ def denoise_particles(
     generator,
     correction_levels=[],
     correction_steps=[],
-    correction_step_size="auto",
+    correction_step_size=0.1,
+    correction_step_type="manual", # or auto
     correction_method=["langevin"],
     addpart_level=0,
     addpart_steps=1,
@@ -279,6 +280,7 @@ def denoise_particles(
         correction_levels (List[int]): noise level indices to do correction steps in
         correction_steps (List[int]): number of correction steps to take in each noise level
         correction_method (List[str]): method of correction e.g. random, langevin, score, repulsive
+        correction_step_type (str): "manual" (choose correction_step_size) or "auto" (decided by formula)
         addpart_level (int): noise level index to add particles in
         addpart_steps (int): number of steps taken between particles
         addpart_method (str): method of steps for adding particles e.g. random, langevin, score (NOT repulsive)
@@ -325,9 +327,9 @@ def denoise_particles(
             if i==correction_level:
                 print(idx)
                 # Automatic step_size using sigmas
-                if correction_step_size=="auto":
-                    correction_step_size = 0.1 * sigma**2 #/ sigmas[0]**2
-                    # correction_step_size = sigma * (sigma - sigmas[step_index + 1]) # / correction_steps[idx]
+                if correction_step_type=="auto":
+                    # correction_step_size =  sigma**2 / sigmas[0]**2
+                    correction_step_size = sigma * (sigma - sigmas[step_index + 1]) # / correction_steps[idx]
                     print(correction_step_size.item())
 
                 particles = correct_particles(
@@ -342,12 +344,5 @@ def denoise_particles(
                     model=model, 
                     kernel=kernel
                 )
-            
-        # Move to next marginal in diffusion
-        # step_size = sigma * (sigma - sigmas[step_index + 1])
-        scores = get_score(particles, sigma, t, config)
-        particles = step_score(particles, scores, sigmas, step_index)
-        # phi_history = None
-        # particles = repulsive_step_parallel(particles, scores, phi_history, model, kernel, generator, step_size=step_size, add_noise=False)
     
     return particles

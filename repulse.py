@@ -71,7 +71,7 @@ config = {
     "num_inference_steps": 20,
     "num_train_timesteps": 1000,
     "num_init_latents": 1, # 1 or num_particles
-    "batch_size": 2,
+    "batch_size": 50,
     "cfg": 8,
     "beta_start": 0.00085,
     "beta_end": 0.012,
@@ -116,20 +116,28 @@ elif args.model=="edges":
 # Denoise
 seed=1024
 generator = torch.Generator("cuda").manual_seed(seed)
-particles = denoise_particles(config, generator, num_particles=2, 
-                                correction_levels=[10], 
-                                correction_steps=[100], 
-                                correction_method=[method], # TODO: Remember to set repulse=True
-                                correction_step_size="auto",
-                                # addpart_level=None,
-                                model=model)
+numparticles=100
+particles = denoise_particles(
+    config, generator, num_particles=numparticles, 
+    correction_levels= np.repeat(list(range(20)),2), 
+    correction_steps=[10,1]*20, 
+    correction_method=['repulsive','score']*20, # TODO: Remember to set repulse=True
+    correction_step_type="auto",
+    # addpart_level=None,
+    model=model
+)
 
+# Decode latents
 images = output_to_img(decode_latent(particles, pipe.vae))
 images = (images * 255).round().astype("uint8")
 pil_images = [Image.fromarray(image) for image in images]
 
-grid = image_grid(pil_images,1,len(particles))
-grid
+# Display images in grid with max_cols columns
+max_cols = 10
+ncols = max_cols if numparticles > max_cols else numparticles
+nrows = int(np.ceil(numparticles / ncols))
+grid = image_grid(pil_images,nrows,ncols)
 
+# Save image grid
 filename = f"data/out_{method}.png"
 grid.save(filename)
