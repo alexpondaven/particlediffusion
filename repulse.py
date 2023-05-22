@@ -1,6 +1,6 @@
 # Generate samples taking langevin/random/repulsive steps from an initial latent at different noise levels
 import os
-os.environ["CUDA_VISIBLE_DEVICES"]="5"
+os.environ["CUDA_VISIBLE_DEVICES"]="6"
 import yaml
 import numpy as np
 import random
@@ -65,7 +65,7 @@ pipe.enable_vae_slicing() # TODO: Try to give batches to VAE
 pipe.enable_model_cpu_offload()
 pipe.enable_xformers_memory_efficient_attention()
 
-prompt = "beautiful tree"
+prompt = "banana"
 config = {
     "pipe": pipe,
     "height": 512,
@@ -73,7 +73,7 @@ config = {
     "num_inference_steps": 20,
     "num_train_timesteps": 1000,
     "num_init_latents": 1, # 1 or num_particles
-    "batch_size": 32,
+    "batch_size": 10,
     "cfg": 8,
     "beta_start": 0.00085,
     "beta_end": 0.012,
@@ -122,16 +122,18 @@ if args.style:
 seed=1024
 generator = torch.Generator("cuda").manual_seed(seed)
 
-numparticles=64
-steps = Steps()
+numparticles=100
+steps = Steps(init_method="score")
 steps.add_all(method,2)
+# steps.add_list(list(range(10)),method,[10]*10)
 steps.add_list([0,1,2,3],method,[10,10,10,10])
-# steps.add(0,method,10)
+# steps.add_list([5],method,[10])
 particles = denoise_particles(
     config, generator, num_particles=numparticles, steps=steps.steps,
     correction_step_type="auto",
     # addpart_level=None,
-    model=model
+    model=model, 
+    repulsive_strength=0.5, repulsive_strat="score"
 )
 
 # Decode latents
@@ -146,5 +148,5 @@ nrows = int(np.ceil(numparticles / ncols))
 grid = image_grid(pil_images,nrows,ncols)
 
 # Save image grid
-filename = f"data/out_{method}.png"
+filename = f"data/out_{method}1.png"
 grid.save(filename)

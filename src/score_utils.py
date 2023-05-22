@@ -214,7 +214,8 @@ def correct_particles(
     step_size=0.2,
     model=None,
     kernel=None,
-    
+    repulsive_strength=10,
+    repulsive_strat="kernel",
     ):
     """ At certain noise scale (step t), apply correction steps to all particles
         particles: N particles in the diffusion process
@@ -225,12 +226,14 @@ def correct_particles(
     """
     if correction_method=="random":
         particles = random_step(particles, correction_steps, generator, step_size=step_size)
-    elif correction_method=="repulsive":
+    elif correction_method=="repulsive" or correction_method=="repulsive_no_noise":
+        add_noise = (correction_method=="repulsive")
         # Parallel particles
         phi_history = None
         for i in range(correction_steps):
             scores = get_score(particles, sigma, t, config)
-            particles = repulsive_step_parallel(particles, scores, phi_history, model, kernel, generator, step_size=step_size)
+            particles = repulsive_step_parallel(particles, scores, phi_history, model, kernel, generator, 
+                                                step_size=step_size, repulsive_strength=repulsive_strength,repulsive_strat=repulsive_strat,add_noise=add_noise)
             with torch.no_grad():
                 print(f"Correction {i} spread: SD - {spread(particles)} embedding - {spread(model(particles))}")
 
@@ -272,6 +275,8 @@ def denoise_particles(
     num_particles=1,
     model=None,
     kernel=RBF(),
+    repulsive_strength=10,
+    repulsive_strat="kernel",
     device="cuda",
 ):
     """ General function to take steps and add particles at different noise levels of diffusion
@@ -315,7 +320,9 @@ def denoise_particles(
                 generator=generator, 
                 step_size=addpart_step_size, 
                 model=model, 
-                kernel=kernel
+                kernel=kernel,
+                repulsive_strength=repulsive_strength,
+                repulsive_strat=repulsive_strat
             )
         
         # Automatic step_size using sigmas
@@ -338,7 +345,9 @@ def denoise_particles(
                     generator=generator, 
                     step_size=correction_step_size, 
                     model=model, 
-                    kernel=kernel
+                    kernel=kernel,
+                    repulsive_strength=repulsive_strength,
+                    repulsive_strat=repulsive_strat
                 )
     
     return particles

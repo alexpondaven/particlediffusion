@@ -4,7 +4,10 @@ import numpy as np
 from collections import defaultdict
 
 class Steps():
-    def __init__(self, nlevels=20):
+    def __init__(self, nlevels=20, init_method="score"):
+        """
+        init_method: score or repulsive_no_noise
+        """
         # Set up step object
         # Default steps is a score step with auto step size at each noise level
         # dictionary of lists of tuples (step_method, num_steps, )
@@ -13,7 +16,7 @@ class Steps():
         self.steps = defaultdict(list)
 
         for level in range(nlevels):
-            self.steps[level].append(("score",1))
+            self.steps[level].append((init_method,1))
     
     def add(self, level, method, steps):
         self.steps[level] = [(method, steps)] + self.steps[level]
