@@ -83,8 +83,9 @@ def repulsive_step_parallel(
                 phi_history_size=n
             
             # Embed latent to smaller dimension
+            model_input = scores
             with torch.no_grad():
-                phi = model(particles)
+                phi = model(model_input)
 
             # Add to phi_history FIFO
             if phi_history:
@@ -107,7 +108,7 @@ def repulsive_step_parallel(
             # If batch too large
             grads = []
             for i in range(n):
-                grad = torch.autograd.functional.jacobian(model, particles[i].unsqueeze(0))
+                grad = torch.autograd.functional.jacobian(model, model_input[i].unsqueeze(0))
                 grads.append(grad[0,:,0,...])
             grads = torch.stack(grads)
             

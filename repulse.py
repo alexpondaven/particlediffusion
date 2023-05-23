@@ -122,12 +122,12 @@ if args.style:
 seed=1024
 generator = torch.Generator("cuda").manual_seed(seed)
 
-numparticles=100
+numparticles=10
 steps = Steps(init_method="score")
 steps.add_all(method,2)
 # steps.add_list(list(range(10)),method,[10]*10)
-steps.add_list([0,1,2,3],method,[10,10,10,10])
-# steps.add_list([5],method,[10])
+# steps.add_list([0,1,2,3],method,[10,10,10,10])
+# steps.add_list([5],method,[2])
 particles = denoise_particles(
     config, generator, num_particles=numparticles, steps=steps.steps,
     correction_step_type="auto",
