@@ -1,6 +1,6 @@
 # Generate samples taking langevin/random/repulsive steps from an initial latent at different noise levels
 import os
-os.environ["CUDA_VISIBLE_DEVICES"]="7"
+os.environ["CUDA_VISIBLE_DEVICES"]="2"
 import yaml
 import numpy as np
 import random
@@ -8,6 +8,7 @@ import torch
 from diffusers import StableDiffusionPipeline
 import argparse
 from PIL import Image
+from datetime import datetime
 
 from src.visualise import image_grid, latent_to_img, decode_latent, output_to_img
 from src.kernel import RBF
@@ -65,7 +66,7 @@ pipe.enable_vae_slicing() # TODO: Try to give batches to VAE
 pipe.enable_model_cpu_offload()
 pipe.enable_xformers_memory_efficient_attention()
 
-prompt = "fantasy map of a continent with diverse terrain, ultra-detailed, by Wilson McLean!, HD, D&D, 4k, 8k, high detail!, intricate, encyclopedia illustration"
+prompt = "banana"
 config = {
     "pipe": pipe,
     "height": 512,
@@ -97,12 +98,12 @@ config = {**config,
 
 # Embedding model for repulsive force
 if args.model=="cnn64":
-    model = CNN64(relu=False)
+    model = CNN64(relu=True)
     model_path = "model.pt"
     model.load_state_dict(torch.load(model_path))
     model.to(torch.device("cuda"))
 elif args.model=="cnn16":
-    model = CNN16(relu=False)
+    model = CNN16(relu=True)
     model_path = "model16.pt"
     model.load_state_dict(torch.load(model_path))
     model.to(torch.device("cuda"))
@@ -133,7 +134,7 @@ particles = denoise_particles(
     correction_step_type="auto",
     # addpart_level=None,
     model=model, 
-    repulsive_strength=0.2, repulsive_strat="kernel"
+    repulsive_strength=100, repulsive_strat="kernel"
 )
 
 # Decode latents
@@ -148,5 +149,8 @@ nrows = int(np.ceil(numparticles / ncols))
 grid = image_grid(pil_images,nrows,ncols)
 
 # Save image grid
-filename = f"data/out_{method}1.png"
+timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
+if method=="repulsive":
+    method = "repulsive_"+args.model
+filename = f"data/outputs/out_{method}_{timestamp}.png"
 grid.save(filename)

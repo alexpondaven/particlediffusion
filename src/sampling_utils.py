@@ -2,7 +2,8 @@
 # TODO: Have a class for these steps and child classes - factory?
 
 import torch
-from torch.func import jacrev
+# from torch.func import jacrev
+from src.embedding import init_weights
 
 def langevin_step(
         samples,
@@ -58,6 +59,7 @@ def repulsive_step_parallel(
         phi_history_size=50,
         repulsive_strat = "kernel",
         device="cuda",
+        weight_reset = True
     ):
         """ Take repulsive langevin step. 
             particles: list of latent samples
@@ -72,6 +74,13 @@ def repulsive_step_parallel(
                 "score"     use other particles scores
         
         """
+        # Re-init weights every time
+        if weight_reset:
+            for layer in model.children():
+                if hasattr(layer, 'reset_parameters'):
+                    layer.reset_parameters()
+
+
         n = len(particles)
         # Checks
         if n<=1:
@@ -83,7 +92,7 @@ def repulsive_step_parallel(
                 phi_history_size=n
             
             # Embed latent to smaller dimension
-            model_input = scores
+            model_input = particles
             with torch.no_grad():
                 phi = model(model_input)
 

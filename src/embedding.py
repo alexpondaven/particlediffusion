@@ -8,7 +8,8 @@ import torch.nn.functional as F
 
 def init_weights(m):
     # Kaiming initialisation used in "A Random CNN Sees Objects" paper
-    if isinstance(m, nn.Linear):
+    # TODO: THIS MIGHT NOT WORK
+    if isinstance(m, nn.Conv2d):
         torch.nn.init.kaiming_normal_(m.weight)
         m.bias.data.fill_(0.01)
 
