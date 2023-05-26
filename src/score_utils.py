@@ -182,7 +182,7 @@ def denoise(
         # Move to next marginal in diffusion
         score = get_score(latents, sigma, t, config)
         latents = step_score(latents, score, sigmas, step_index)
-        if return_all_samples and i%2==0:
+        if return_all_samples:
             latent_list.append(latents)
 
     

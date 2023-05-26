@@ -1,6 +1,8 @@
 *.png
 *.pth
+*.pt
 *.npz
 *.pdf
 */__pycache__
 *.onnx
+*.ttf

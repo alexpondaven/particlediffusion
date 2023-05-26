@@ -1,6 +1,6 @@
 # Generate samples taking langevin/random/repulsive steps from an initial latent at different noise levels
 import os
-os.environ["CUDA_VISIBLE_DEVICES"]="2"
+os.environ["CUDA_VISIBLE_DEVICES"]="4"
 import yaml
 import numpy as np
 import random
@@ -66,14 +66,14 @@ pipe.enable_vae_slicing() # TODO: Try to give batches to VAE
 pipe.enable_model_cpu_offload()
 pipe.enable_xformers_memory_efficient_attention()
 
-prompt = "banana"
+prompt = "one banana, white background"
 config = {
     "pipe": pipe,
     "height": 512,
     "width": 512,
     "num_inference_steps": 20,
     "num_train_timesteps": 1000,
-    "num_init_latents": 1, # 1 or num_particles
+    "num_init_latents": 100, # 1 or num_particles
     "batch_size": 50,
     "cfg": 8,
     "beta_start": 0.00085,
@@ -124,17 +124,17 @@ seed=1024
 generator = torch.Generator("cuda").manual_seed(seed)
 
 numparticles=100
-steps = Steps(init_method="repulsive_no_noise")
-# steps.add_all(method,2)
+steps = Steps(init_method="score") #repulsive_no_noise
+steps.add_all(method,2)
 # steps.add_list(list(range(10)),method,[10]*10)
 # steps.add_list([0,1,2,3],method,[10,10,10,10])
 # steps.add_list([5],method,[2])
 particles = denoise_particles(
     config, generator, num_particles=numparticles, steps=steps.steps,
     correction_step_type="auto",
-    # addpart_level=None,
+    addpart_level=None,
     model=model, 
-    repulsive_strength=100, repulsive_strat="kernel"
+    repulsive_strength=0, repulsive_strat="kernel"
 )
 
 # Decode latents
