@@ -1,10 +1,11 @@
 # Generate samples taking langevin/random/repulsive steps from an initial latent at different noise levels
 import os
-os.environ["CUDA_VISIBLE_DEVICES"]="0"
+os.environ["CUDA_VISIBLE_DEVICES"]="1"
 import yaml
 import numpy as np
 import random
 import torch
+import torch.nn as nn
 from diffusers import StableDiffusionPipeline
 import argparse
 from PIL import Image
@@ -66,15 +67,15 @@ pipe.enable_vae_slicing() # TODO: Try to give batches to VAE
 pipe.enable_model_cpu_offload()
 pipe.enable_xformers_memory_efficient_attention()
 
-prompt = "banana"
+prompt = "Bustling cityscape at night with neon lights and reflections"
 config = {
     "pipe": pipe,
     "height": 512,
     "width": 512,
     "num_inference_steps": 20,
     "num_train_timesteps": 1000,
-    "num_init_latents": 1, # 1 or num_particles
-    "batch_size": 50,
+    "num_init_latents": 10, # 1 or num_particles
+    "batch_size": 10,
     "cfg": 8,
     "beta_start": 0.00085,
     "beta_end": 0.012,
@@ -116,8 +117,9 @@ elif args.model=="average":
 elif args.model=="edges":
     model=Edges()
 elif args.model=="vgg":
-    model = VGG(logsoftmax=False)
-    model_path ='data/model_chk/classifier_epoch100.pt'
+    num_outputs = 20
+    model = VGG(num_outputs=num_outputs, logsoftmax=False, return_conv_act=True)
+    model_path ='data/model_chk/artist_classifier_epoch100.pt'
     model.load_state_dict(torch.load(model_path))
     model.to(torch.device("cuda"))
 
@@ -128,20 +130,21 @@ if args.style:
 seed=1024
 generator = torch.Generator("cuda").manual_seed(seed)
 
-numparticles=100
+numparticles=10
 steps = Steps(init_method="repulsive_no_noise") #repulsive_no_noise
-# steps.add_all(method,2)
+# steps.add_all(method,10)
 # steps.add_list(list(range(10)),method,[10]*10)
 # steps.add_list([0,1,2,3],method,[10,10,10,10])
 # steps.add_list([5],method,[2])
 particles = denoise_particles(
     config, generator, num_particles=numparticles, steps=steps.steps,
     correction_step_type="auto",
-    # addpart_level=None,
+    addpart_level=None,
     model=model, 
-    repulsive_strength=20, repulsive_strat="kernel"
+    repulsive_strength=50, repulsive_strat="kernel"
 )
-
+model.return_conv_act=False
+print("Classifier prediction:", nn.Softmax(dim=1)(model(particles)).argmax(dim=1))
 # Decode latents
 images = output_to_img(decode_latent(particles, pipe.vae))
 images = (images * 255).round().astype("uint8")

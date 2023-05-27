@@ -79,20 +79,44 @@ config = {**config,
 
 # For each style, create 500 images of "tree, {style}"
 # Store all 21 latents as a torch
-styles =  pd.read_csv("data/styles/styles.csv",header=None)
-for style in styles[0]:
-    prompt = f"tree, {style}"
-    filename = "tree_" + style.replace(" ", "_")
-    dst_path = os.path.join("data","styles", style.replace(" ", "_"))
+# styles =  pd.read_csv("data/styles/styles.csv",header=None)
+# for style in styles[0]:
+#     prompt = f"tree, {style}"
+#     filename = "tree_" + style.replace(" ", "_")
+#     dst_path = os.path.join("data","styles", style.replace(" ", "_"))
+#     os.makedirs(dst_path, exist_ok=True)
+#     print(style)
+#     for i in range(1000):
+#         init_latents, text_embeddings = get_score_input(prompt, config, generator=generator, device=device, dtype=dtype)
+#         config = {**config,
+#                 "init_latents": init_latents,
+#                 "text_embeddings": text_embeddings
+#                 }
+#         print(f"{filename}_{i}.png")
+#         latents = denoise([], 0, config, return_all_samples=True, generator=generator)
+#         latents = torch.cat(latents)
+#         torch.save(latents, os.path.join(dst_path , f"{filename}_{i}.pt"))
+
+# Base prompt by chatgpt + top 20 artists
+artists = pd.read_csv("data/styles/artists.csv",header=None)
+# subjects have commas:
+f = open("data/styles/base_prompt.csv",'r')
+subjects = [s.strip() for s in f.readlines()]
+for a, artist in enumerate(artists[0]):
+    dst_path = os.path.join("data","styles", "artists", artist.replace(" ", "_"))
     os.makedirs(dst_path, exist_ok=True)
-    print(style)
-    for i in range(1000):
+    for s, subject in enumerate(subjects):
+        prompt = f"{subject} by {artist}"
+        filename = f"artist{a}_subject{s}"
+        print(prompt)
         init_latents, text_embeddings = get_score_input(prompt, config, generator=generator, device=device, dtype=dtype)
         config = {**config,
                 "init_latents": init_latents,
                 "text_embeddings": text_embeddings
                 }
-        print(f"{filename}_{i}.png")
-        latents = denoise([], 0, config, return_all_samples=True, generator=generator)
+        print(f"{filename}.png")
+        latents, scores = denoise([], 0, config, return_all_samples=True, generator=generator)
         latents = torch.cat(latents)
-        torch.save(latents, os.path.join(dst_path , f"{filename}_{i}.pt"))
+        scores = torch.cat(scores)
+        torch.save(latents, os.path.join(dst_path , f"{filename}_latent.pt"))
+        torch.save(scores, os.path.join(dst_path , f"{filename}_score.pt"))

@@ -168,6 +168,8 @@ def denoise(
 
     if return_all_samples:
         latent_list = [latents]
+        score_list = []
+        
     for i, t in enumerate(tqdm(config['timesteps'])):
         t = t.to(device)
         step_index = (config['timesteps'] == t).nonzero().item()
@@ -184,10 +186,11 @@ def denoise(
         latents = step_score(latents, score, sigmas, step_index)
         if return_all_samples:
             latent_list.append(latents)
-
+            score_list.append(score)
+            
     
     if return_all_samples:
-        return latent_list
+        return latent_list, score_list
     
     return latents
 
