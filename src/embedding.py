@@ -13,6 +13,47 @@ def init_weights(m):
         torch.nn.init.kaiming_normal_(m.weight)
         m.bias.data.fill_(0.01)
 
+# Trained model
+class VGG(nn.Module):
+    def __init__(self, num_outputs=5, logsoftmax=True):
+        super().__init__()
+
+        self.num_outputs = num_outputs
+        self.logsoftmax = logsoftmax
+
+        self.conv_layers = []
+        self.num_blocks = 4
+        for i in range(self.num_blocks):
+            layer = nn.Conv2d(4*2**i,4*2**(i+1),kernel_size=(3,3), stride=1, padding=1)
+            self.conv_layers.append(layer)
+        final_nchannels = 4*2**self.num_blocks
+        conv_final = nn.Conv2d(final_nchannels, final_nchannels, kernel_size=(4,4))
+        self.conv_layers.append(conv_final)
+
+        self.conv_layers = nn.ModuleList(self.conv_layers)
+
+        self.act = nn.ReLU(inplace=True)
+        self.maxpool = nn.MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+
+        self.fc = nn.Linear(in_features=final_nchannels, out_features=num_outputs, bias=True)
+
+        self.logsoftmax = nn.LogSoftmax(dim=1)
+
+    def forward(self, x):
+        # Conv layers
+        for i, conv_layer in enumerate(self.conv_layers):
+            x = conv_layer(x)
+            if i != len(self.conv_layers)-1:
+                x = self.maxpool(self.act(x))
+        
+        # FC layer
+        x = x.squeeze(-2,-1)
+        x = self.fc(x)
+        if self.logsoftmax:
+            x = self.logsoftmax(x)
+        
+        return x
+
 # CNN model
 class CNN64(nn.Module):
     def __init__(self, relu=True):

@@ -1,5 +1,5 @@
 import os
-os.environ["CUDA_VISIBLE_DEVICES"]="0"
+os.environ["CUDA_VISIBLE_DEVICES"]="7"
 from diffusers import DiffusionPipeline
 import numpy as np
 import random
@@ -86,7 +86,7 @@ for style in styles[0]:
     dst_path = os.path.join("data","styles", style.replace(" ", "_"))
     os.makedirs(dst_path, exist_ok=True)
     print(style)
-    for i in range(100):
+    for i in range(1000):
         init_latents, text_embeddings = get_score_input(prompt, config, generator=generator, device=device, dtype=dtype)
         config = {**config,
                 "init_latents": init_latents,

@@ -59,7 +59,7 @@ def repulsive_step_parallel(
         phi_history_size=50,
         repulsive_strat = "kernel",
         device="cuda",
-        weight_reset = True
+        weight_reset = False
     ):
         """ Take repulsive langevin step. 
             particles: list of latent samples
