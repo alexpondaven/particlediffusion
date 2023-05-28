@@ -67,7 +67,7 @@ pipe.enable_vae_slicing() # TODO: Try to give batches to VAE
 pipe.enable_model_cpu_offload()
 pipe.enable_xformers_memory_efficient_attention()
 
-prompt = "Bustling cityscape at night with neon lights and reflections"
+prompt = "Serene forest landscape on a misty morning"
 config = {
     "pipe": pipe,
     "height": 512,
@@ -141,7 +141,7 @@ particles = denoise_particles(
     correction_step_type="auto",
     addpart_level=None,
     model=model, 
-    repulsive_strength=50, repulsive_strat="kernel"
+    repulsive_strength=500, repulsive_strat="kernel"
 )
 model.return_conv_act=False
 print("Classifier prediction:", nn.Softmax(dim=1)(model(particles)).argmax(dim=1))

@@ -57,6 +57,55 @@ class VGG(nn.Module):
         
         return x
 
+class VGG_noise(nn.Module):
+    def __init__(self, num_outputs=5, logsoftmax=True, return_conv_act=False):
+        super().__init__()
+
+        self.num_outputs = num_outputs
+        self.logsoftmax = logsoftmax
+        self.return_conv_act = return_conv_act
+
+        self.conv_layers = []
+        self.num_blocks = 4
+        for i in range(self.num_blocks):
+            layer = nn.Conv2d(4*2**i,4*2**(i+1),kernel_size=(3,3), stride=1, padding=1)
+            self.conv_layers.append(layer)
+        final_nchannels = 4*2**self.num_blocks
+        conv_final = nn.Conv2d(final_nchannels, final_nchannels, kernel_size=(4,4))
+        self.conv_layers.append(conv_final)
+
+        self.conv_layers = nn.ModuleList(self.conv_layers)
+
+        self.act = nn.ReLU(inplace=True)
+        self.maxpool = nn.MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+
+        self.fc = nn.Linear(in_features=final_nchannels + 1, out_features=num_outputs, bias=True)
+
+        self.logsoftmax = nn.LogSoftmax(dim=1)
+
+    def forward(self, x, lvl_idx):
+        # Conv layers
+        for i, conv_layer in enumerate(self.conv_layers):
+            x = conv_layer(x)
+            if i != len(self.conv_layers)-1:
+                x = self.maxpool(self.act(x))
+        
+        x = x.squeeze(-2,-1)
+        if self.return_conv_act:
+            return x
+        
+        # FC layer - input Nx64
+        # Add on noise_level sigma
+        # 1) Add as extra dimension
+        # 2) Input to hypernetwork for FC layer weights
+        x = torch.cat([x, lvl_idx.unsqueeze(1)],dim=1)
+        x = self.fc(x)
+        if self.logsoftmax:
+            x = self.logsoftmax(x)
+        
+        return x
+
+# Adding dropout didn't help much for overfitting
 class VGG_dropout(nn.Module):
     def __init__(self, num_outputs=5, logsoftmax=True, return_conv_act=False):
         super().__init__()

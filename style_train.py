@@ -21,7 +21,7 @@ from schedulers.euler_discrete import EulerDiscreteCustomScheduler, FrozenDict, 
 from src.score_utils import get_sigmas, get_score_input, scale_input, get_score, step_score, denoise
 from src.sampling_utils import random_step, langevin_step, repulsive_step_parallel
 from src.kernel import RBF
-from src.embedding import CNN64, CNN16, init_weights, AverageDim, Average, VAEAverage, Style, VGG, VGG_dropout
+from src.embedding import CNN64, CNN16, init_weights, AverageDim, Average, VAEAverage, Style, VGG, VGG_dropout, VGG_noise
 from src.datasets import StyleDataset, ArtistDataset
 from src.train import train
 
@@ -35,7 +35,7 @@ from glob import glob
 
 # Dataset
 # dataset = StyleDataset()
-dataset = ArtistDataset(return_scores=True)
+dataset = ArtistDataset(return_scores=False)
 train_sz = int(0.7 * len(dataset))
 val_sz = int(0.1 * len(dataset))
 test_sz = len(dataset) - train_sz - val_sz
@@ -48,17 +48,17 @@ val_dl = DataLoader(val_set, batch_size=val_sz)
 test_dl = DataLoader(test_set, batch_size=test_sz)
 
 # Model training
-model = VGG(num_outputs=len(dataset.styles))
+model = VGG_noise(num_outputs=len(dataset.styles))
 device="cuda"
 model.to(device)
 
-criterion = nn.NLLLoss()
+criterion = nn.NLLLoss(reduction='none')
 lr = 1e-4
-epochs = 100
+epochs = 200
 opt = optim.Adam(model.parameters(), lr=lr)
 batches = len(train_dl)
 
 seed=0
 generator = torch.Generator(device).manual_seed(seed)
 torch.manual_seed(seed)
-train_losses, val_losses, train_accs, val_accs = train(model, criterion, epochs, opt, train_dl, val_dl, dataset.noise_levels)
+train_losses, val_losses, train_accs, val_accs = train(model, criterion, epochs, opt, train_dl, val_dl, dataset.noise_levels, score=True)
