@@ -4,6 +4,7 @@
 import torch
 # from torch.func import jacrev
 from src.embedding import init_weights
+from src.embedding import CNN16, CNN64
 
 def langevin_step(
         samples,
@@ -75,7 +76,7 @@ def repulsive_step_parallel(
         
         """
         # Re-init weights every time
-        if weight_reset:
+        if weight_reset or (type(model)==CNN16 or type(model)==CNN64):
             for layer in model.children():
                 if hasattr(layer, 'reset_parameters'):
                     layer.reset_parameters()

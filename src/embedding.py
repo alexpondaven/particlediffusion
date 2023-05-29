@@ -15,12 +15,13 @@ def init_weights(m):
 
 # Trained model
 class VGG(nn.Module):
-    def __init__(self, num_outputs=5, logsoftmax=True, return_conv_act=False):
+    def __init__(self, num_outputs=5, logsoftmax=True, return_conv_act=False, return_pre_fconv=False):
         super().__init__()
 
         self.num_outputs = num_outputs
         self.logsoftmax = logsoftmax
         self.return_conv_act = return_conv_act
+        self.return_pre_fconv = return_pre_fconv
 
         self.conv_layers = []
         self.num_blocks = 4
@@ -46,6 +47,11 @@ class VGG(nn.Module):
             x = conv_layer(x)
             if i != len(self.conv_layers)-1:
                 x = self.maxpool(self.act(x))
+            
+            # Return pre-final conv layer
+            if i==(len(self.conv_layers)-2) and self.return_pre_fconv:
+                return x
+
         
         x = x.squeeze(-2,-1)
         if self.return_conv_act:
@@ -251,9 +257,51 @@ class VAEAverage(nn.Module):
 class Edges(nn.Module):
     def forward(self, x):
         dc = torch.mean(x, axis=(2,3))
-        vert = torch.mean(x[...,32:, :] - x[...,:32,:], axis=(2,3))
-        horz = torch.mean(x[...,:, :32] - x[...,:,32:], axis=(2,3))
+        horz = torch.mean(x[...,32:, :] - x[...,:32,:], axis=(2,3))
+        vert = torch.mean(x[...,:, :32] - x[...,:,32:], axis=(2,3))
+        # return vert
         return torch.cat((dc, vert,horz),axis=1)
+
+# Rule of thirds
+class RuleOfThirds(nn.Module):
+    def forward(self, x):
+        # dc = torch.mean(x, axis=(2,3))
+        h1 = torch.mean(x[...,:21, :] - x[...,21:42,:], axis=(2,3))
+        h2 = torch.mean(x[...,22:43, :] - x[...,43:,:], axis=(2,3))
+        v1 = torch.mean(x[...,:,:21] - x[...,:,21:42], axis=(2,3))
+        v2 = torch.mean(x[...,:,22:43] - x[...,:,43:], axis=(2,3))
+        # return vert
+        return torch.cat((h1, h2, v1,v2),axis=1)
+
+# Rule of thirds on VGG features
+class VGGRo3(nn.Module):
+    def __init__(self, vgg):
+        super().__init__()
+        self.vgg = vgg
+
+    def forward(self, x):
+        # Nx64x4x4
+        x = self.vgg(x)
+        ## DC over 4x4 spatial
+        # dc_spatial = torch.mean(x, axis=(2,3))
+        ## DC over channels, then flatten
+        # dc_channel = torch.mean(x, axis=1).flatten(1)
+        ## Difference in spatial (mean over channels)
+        # h_channel = torch.mean(x[...,:2,:] - x[...,2:,:], axis=1).flatten(1)
+        # v_channel = torch.mean(x[...,:,:2] - x[...,:,2:], axis=1).flatten(1)
+        # edge_channel = torch.cat((h_channel,v_channel),axis=1)
+        ## Difference in spatial (average over 2x4 spatial) <- makes more sense, mean difference over left/right
+        # h_spatial = torch.mean(x[...,:2,:] - x[...,2:,:], axis=(2,3))
+        # v_spatial = torch.mean(x[...,:,:2] - x[...,:,2:], axis=(2,3))
+        # edge_spatial = torch.cat((h_spatial,v_spatial),axis=1)
+        ## RO3 Spatial
+        h1 = torch.mean(x[...,0, :] - x[...,1,:], axis=2)
+        h2 = torch.mean(x[...,2, :] - x[...,3,:], axis=2)
+        v1 = torch.mean(x[...,:,0] - x[...,:,1], axis=2)
+        v2 = torch.mean(x[...,:,2] - x[...,:,3], axis=2)
+        ro3_spatial = torch.cat((h1,h2,v1,v2),axis=1)
+        return ro3_spatial
+        # return torch.cat((h1, h2, v1,v2),axis=1)
 
 # Augmentations
 class CombineKernel(nn.Module):

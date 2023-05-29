@@ -13,7 +13,7 @@ from datetime import datetime
 
 from src.visualise import image_grid, latent_to_img, decode_latent, output_to_img
 from src.kernel import RBF
-from src.embedding import CNN16, CNN64, Average, AverageDim, VAEAverage, Edges, init_weights, Style, VGG
+from src.embedding import CNN16, CNN64, Average, AverageDim, VAEAverage, Edges, init_weights, Style, VGG, RuleOfThirds, VGGRo3
 from src.score_utils import get_sigmas, get_score_input, denoise_particles
 from src.steps import Steps
 
@@ -67,15 +67,29 @@ pipe.enable_vae_slicing() # TODO: Try to give batches to VAE
 pipe.enable_model_cpu_offload()
 pipe.enable_xformers_memory_efficient_attention()
 
-prompt = "Serene forest landscape on a misty morning"
+##### PARAMS #############################################################
+prompt = "Enchanting underwater scene with colorful coral reefs and marine life"
+numparticles = 10
+single_initial_latent = False
+
+###########################################################################
+
+if single_initial_latent:
+    num_init_latents = 1
+    addpart_level = 0 # Add particles in lvl 0
+else:
+    num_init_latents = numparticles
+    addpart_level = None # Don't add any more particles
+batch_size = min(50, numparticles)
+
 config = {
     "pipe": pipe,
     "height": 512,
     "width": 512,
     "num_inference_steps": 20,
     "num_train_timesteps": 1000,
-    "num_init_latents": 10, # 1 or num_particles
-    "batch_size": 10,
+    "num_init_latents": num_init_latents, # 1 or numparticles
+    "batch_size": batch_size,
     "cfg": 8,
     "beta_start": 0.00085,
     "beta_end": 0.012,
@@ -116,21 +130,29 @@ elif args.model=="average":
     model=Average()
 elif args.model=="edges":
     model=Edges()
+elif args.model=="ro3":
+    model=RuleOfThirds()
 elif args.model=="vgg":
     num_outputs = 20
     model = VGG(num_outputs=num_outputs, logsoftmax=False, return_conv_act=True)
     model_path ='data/model_chk/artist_classifier_epoch100.pt'
     model.load_state_dict(torch.load(model_path))
     model.to(torch.device("cuda"))
+elif args.model=="vggro3":
+    num_outputs = 20
+    model = VGG(num_outputs=num_outputs, logsoftmax=False, return_pre_fconv=True)
+    model_path ='data/model_chk/artist_classifier_epoch100.pt'
+    model.load_state_dict(torch.load(model_path))
+    model = VGGRo3(vgg=model)
+    model.to(torch.device("cuda"))
 
 if args.style:
     model = Style(model)
 
-# Denoise
+############## Denoise ##########################################
 seed=1024
 generator = torch.Generator("cuda").manual_seed(seed)
 
-numparticles=10
 steps = Steps(init_method="repulsive_no_noise") #repulsive_no_noise
 # steps.add_all(method,10)
 # steps.add_list(list(range(10)),method,[10]*10)
@@ -139,12 +161,15 @@ steps = Steps(init_method="repulsive_no_noise") #repulsive_no_noise
 particles = denoise_particles(
     config, generator, num_particles=numparticles, steps=steps.steps,
     correction_step_type="auto",
-    addpart_level=None,
+    addpart_level=addpart_level,
     model=model, 
-    repulsive_strength=500, repulsive_strat="kernel"
+    repulsive_strength=200, repulsive_strat="kernel"
 )
 model.return_conv_act=False
 print("Classifier prediction:", nn.Softmax(dim=1)(model(particles)).argmax(dim=1))
+######################################################################
+
+
 # Decode latents
 images = output_to_img(decode_latent(particles, pipe.vae))
 images = (images * 255).round().astype("uint8")
