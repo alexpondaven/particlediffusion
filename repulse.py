@@ -1,6 +1,6 @@
 # Generate samples taking langevin/random/repulsive steps from an initial latent at different noise levels
 import os
-os.environ["CUDA_VISIBLE_DEVICES"]="1"
+os.environ["CUDA_VISIBLE_DEVICES"]="0"
 import yaml
 import numpy as np
 import random
@@ -68,9 +68,9 @@ pipe.enable_model_cpu_offload()
 pipe.enable_xformers_memory_efficient_attention()
 
 ##### PARAMS #############################################################
-prompt = "Enchanting underwater scene with colorful coral reefs and marine life"
-numparticles = 10
-single_initial_latent = False
+prompt = "Intriguing portrait of an elderly person with captivating wrinkles and wisdom in their eyes by Vincent Van Gogh"
+numparticles = 100
+single_initial_latent = True
 
 ###########################################################################
 

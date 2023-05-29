@@ -1,3 +1,4 @@
+# Generate latents/scores for base+style prompts (for classification model training)
 import os
 os.environ["CUDA_VISIBLE_DEVICES"]="7"
 from diffusers import DiffusionPipeline
@@ -24,26 +25,28 @@ from src.sampling_utils import random_step, langevin_step, repulsive_step_parall
 from src.kernel import RBF
 from src.embedding import CNN64, CNN16, init_weights, AverageDim, Average, VAEAverage, Style
 
-import torch
 import torch.nn as nn
 import torch.nn.functional as F
-# import autograd.numpy as anp
 from collections import deque
+import argparse
+
+parser = argparse.ArgumentParser(description="Running diversity steps experiment.")
+# Initial latent info
+parser.add_argument("--latent", action='store_true', help="store latents at each step")
+parser.add_argument("--score", action='store_true', help="store scores at each step")
+parser.add_argument("--img", action='store_true', help="store resulting image as png")
+
+args = parser.parse_args()
 
 # Using 512x512 resolution
 model_id = "stabilityai/stable-diffusion-2-base"
-# model_id = "CompVis/stable-diffusion-v1-4"
-
-# tf32 faster computation with Ampere
 torch.backends.cuda.matmul.allow_tf32 = True
 device = "cuda"
 dtype=torch.float32
 pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=dtype)
-# pipe = pipe.to(device)
 pipe.safety_checker = None
-pipe.enable_attention_slicing() # NOTE: 10% slower inference, but big memory savings
-# pipe.enable_sequential_cpu_offload() # NOTE: May slow down inference a lot
-pipe.enable_vae_slicing() # TODO: Try to give batches to VAE
+pipe.enable_attention_slicing()
+pipe.enable_vae_slicing()
 pipe.enable_model_cpu_offload()
 pipe.enable_xformers_memory_efficient_attention()
 
@@ -102,6 +105,7 @@ artists = pd.read_csv("data/styles/artists.csv",header=None)
 # subjects have commas:
 f = open("data/styles/base_prompt.csv",'r')
 subjects = [s.strip() for s in f.readlines()]
+
 for a, artist in enumerate(artists[0]):
     dst_path = os.path.join("data","styles", "artists", artist.replace(" ", "_"))
     os.makedirs(dst_path, exist_ok=True)
@@ -116,7 +120,16 @@ for a, artist in enumerate(artists[0]):
                 }
         print(f"{filename}.png")
         latents, scores = denoise([], 0, config, return_all_samples=True, generator=generator)
-        latents = torch.cat(latents)
-        scores = torch.cat(scores)
-        torch.save(latents, os.path.join(dst_path , f"{filename}_latent.pt"))
-        torch.save(scores, os.path.join(dst_path , f"{filename}_score.pt"))
+
+        # Save results
+        if args.latent:
+            latents = torch.cat(latents)
+            torch.save(latents, os.path.join(dst_path , f"{filename}_latent.pt"))
+        if args.score:
+            scores = torch.cat(scores)
+            torch.save(scores, os.path.join(dst_path , f"{filename}_score.pt"))
+        if args.img:
+            img = decode_latent(latents[-1].unsqueeze(0), pipe.vae)
+            img = output_to_img(img)
+            img = (img * 255).round().astype("uint8")
+            img.save(os.path.join(dst_path , f"{filename}.png"))

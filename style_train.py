@@ -1,3 +1,4 @@
+# Train style classification model on given latent data
 import os
 os.environ["CUDA_VISIBLE_DEVICES"]="1"
 from diffusers import DiffusionPipeline
