@@ -275,33 +275,45 @@ class RuleOfThirds(nn.Module):
 
 # Rule of thirds on VGG features
 class VGGRo3(nn.Module):
-    def __init__(self, vgg):
+    def __init__(self, vgg, mode="ro3"):
         super().__init__()
         self.vgg = vgg
+        self.mode = mode
 
     def forward(self, x):
         # Nx64x4x4
         x = self.vgg(x)
-        ## DC over 4x4 spatial
-        # dc_spatial = torch.mean(x, axis=(2,3))
-        ## DC over channels, then flatten
-        # dc_channel = torch.mean(x, axis=1).flatten(1)
-        ## Difference in spatial (mean over channels)
-        # h_channel = torch.mean(x[...,:2,:] - x[...,2:,:], axis=1).flatten(1)
-        # v_channel = torch.mean(x[...,:,:2] - x[...,:,2:], axis=1).flatten(1)
-        # edge_channel = torch.cat((h_channel,v_channel),axis=1)
-        ## Difference in spatial (average over 2x4 spatial) <- makes more sense, mean difference over left/right
-        # h_spatial = torch.mean(x[...,:2,:] - x[...,2:,:], axis=(2,3))
-        # v_spatial = torch.mean(x[...,:,:2] - x[...,:,2:], axis=(2,3))
-        # edge_spatial = torch.cat((h_spatial,v_spatial),axis=1)
-        ## RO3 Spatial
-        h1 = torch.mean(x[...,0, :] - x[...,1,:], axis=2)
-        h2 = torch.mean(x[...,2, :] - x[...,3,:], axis=2)
-        v1 = torch.mean(x[...,:,0] - x[...,:,1], axis=2)
-        v2 = torch.mean(x[...,:,2] - x[...,:,3], axis=2)
-        ro3_spatial = torch.cat((h1,h2,v1,v2),axis=1)
-        return ro3_spatial
-        # return torch.cat((h1, h2, v1,v2),axis=1)
+        if self.mode=="dc_average":
+            ## DC over 4x4 spatial
+            dc_spatial = torch.mean(x, axis=(2,3))
+            return dc_spatial
+        elif self.mode=="dc_channel":
+            ## DC over channels, then flatten
+            dc_channel = torch.mean(x, axis=1).flatten(1)
+            return dc_channel
+        elif self.mode=="edge_channel":
+            ## Difference in spatial (mean over channels)
+            h_channel = torch.mean(x[...,:2,:] - x[...,2:,:], axis=1).flatten(1)
+            v_channel = torch.mean(x[...,:,:2] - x[...,:,2:], axis=1).flatten(1)
+            edge_channel = torch.cat((h_channel,v_channel),axis=1)
+            return edge_channel
+        elif self.mode=="edge_spatial":
+            ## Difference in spatial (average over 2x4 spatial) <- makes more sense, mean difference over left/right
+            h_spatial = torch.mean(x[...,:2,:] - x[...,2:,:], axis=(2,3))
+            v_spatial = torch.mean(x[...,:,:2] - x[...,:,2:], axis=(2,3))
+            edge_spatial = torch.cat((h_spatial,v_spatial),axis=1)
+            return edge_spatial
+        elif self.mode=="ro3":
+            ## RO3 Spatial
+            h1 = torch.mean(x[...,0, :] - x[...,1,:], axis=2)
+            h2 = torch.mean(x[...,2, :] - x[...,3,:], axis=2)
+            v1 = torch.mean(x[...,:,0] - x[...,:,1], axis=2)
+            v2 = torch.mean(x[...,:,2] - x[...,:,3], axis=2)
+            ro3_spatial = torch.cat((h1,h2,v1,v2),axis=1)
+            return ro3_spatial
+        else:
+            print("ERROR: Not valid VGG operation mode")
+            return x
 
 # Augmentations
 class CombineKernel(nn.Module):

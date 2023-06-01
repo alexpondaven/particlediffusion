@@ -1,6 +1,6 @@
 # Generate samples taking langevin/random/repulsive steps from an initial latent at different noise levels
 import os
-os.environ["CUDA_VISIBLE_DEVICES"]="0"
+os.environ["CUDA_VISIBLE_DEVICES"]="2"
 import yaml
 import numpy as np
 import random
@@ -68,8 +68,8 @@ pipe.enable_model_cpu_offload()
 pipe.enable_xformers_memory_efficient_attention()
 
 ##### PARAMS #############################################################
-prompt = "Intriguing portrait of an elderly person with captivating wrinkles and wisdom in their eyes by Vincent Van Gogh"
-numparticles = 100
+prompt = "Mystical forest with towering trees and mystical creatures"
+numparticles = 10000
 single_initial_latent = True
 
 ###########################################################################
@@ -138,12 +138,13 @@ elif args.model=="vgg":
     model_path ='data/model_chk/artist_classifier_epoch100.pt'
     model.load_state_dict(torch.load(model_path))
     model.to(torch.device("cuda"))
-elif args.model=="vggro3":
+    alpha = 500
+elif "vgg" in args.model:
     num_outputs = 20
     model = VGG(num_outputs=num_outputs, logsoftmax=False, return_pre_fconv=True)
     model_path ='data/model_chk/artist_classifier_epoch100.pt'
     model.load_state_dict(torch.load(model_path))
-    model = VGGRo3(vgg=model)
+    model = VGGRo3(vgg=model, mode=args.model[3:])
     model.to(torch.device("cuda"))
 
 if args.style:
@@ -154,8 +155,8 @@ seed=1024
 generator = torch.Generator("cuda").manual_seed(seed)
 
 steps = Steps(init_method="repulsive_no_noise") #repulsive_no_noise
-# steps.add_all(method,10)
-# steps.add_list(list(range(10)),method,[10]*10)
+# steps.add_all(method,2)
+# steps.add_list(list(range(10,20)),method,[10]*10)
 # steps.add_list([0,1,2,3],method,[10,10,10,10])
 # steps.add_list([5],method,[2])
 particles = denoise_particles(
@@ -176,7 +177,7 @@ images = (images * 255).round().astype("uint8")
 pil_images = [Image.fromarray(image) for image in images]
 
 # Display images in grid with max_cols columns
-max_cols = 10
+max_cols = 100
 ncols = max_cols if numparticles > max_cols else numparticles
 nrows = int(np.ceil(numparticles / ncols))
 grid = image_grid(pil_images,nrows,ncols)
