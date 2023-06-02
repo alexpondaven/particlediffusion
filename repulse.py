@@ -14,7 +14,8 @@ from datetime import datetime
 from src.visualise import image_grid, latent_to_img, decode_latent, output_to_img
 from src.kernel import RBF
 from src.embedding import CNN16, CNN64, Average, AverageDim, VAEAverage, Edges, init_weights, Style, VGG, RuleOfThirds, VGGRo3
-from src.score_utils import get_sigmas, get_score_input, denoise_particles
+from src.score_utils import get_sigmas, get_score_input
+from src.denoise_utils import denoise_particles
 from src.steps import Steps
 
 # Arguments
@@ -68,8 +69,8 @@ pipe.enable_model_cpu_offload()
 pipe.enable_xformers_memory_efficient_attention()
 
 ##### PARAMS #############################################################
-prompt = "Mystical forest with towering trees and mystical creatures"
-numparticles = 10000
+prompt = "a humongous cave opening in a rainforest, waterfall in the middle, concept art, by Alfred Eisenstaedt"
+numparticles = 1000
 single_initial_latent = True
 
 ###########################################################################
@@ -154,7 +155,7 @@ if args.style:
 seed=1024
 generator = torch.Generator("cuda").manual_seed(seed)
 
-steps = Steps(init_method="repulsive_no_noise") #repulsive_no_noise
+steps = Steps(init_method="repulsive_series_no_noise") #repulsive_no_noise
 # steps.add_all(method,2)
 # steps.add_list(list(range(10,20)),method,[10]*10)
 # steps.add_list([0,1,2,3],method,[10,10,10,10])
@@ -164,7 +165,7 @@ particles = denoise_particles(
     correction_step_type="auto",
     addpart_level=addpart_level,
     model=model, 
-    repulsive_strength=200, repulsive_strat="kernel"
+    repulsive_strength=10, repulsive_strat="kernel"
 )
 model.return_conv_act=False
 print("Classifier prediction:", nn.Softmax(dim=1)(model(particles)).argmax(dim=1))
@@ -176,15 +177,26 @@ images = output_to_img(decode_latent(particles, pipe.vae))
 images = (images * 255).round().astype("uint8")
 pil_images = [Image.fromarray(image) for image in images]
 
-# Display images in grid with max_cols columns
-max_cols = 100
-ncols = max_cols if numparticles > max_cols else numparticles
-nrows = int(np.ceil(numparticles / ncols))
-grid = image_grid(pil_images,nrows,ncols)
+save_grid=False
 
-# Save image grid
-timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
-if method=="repulsive":
-    method = "repulsive_"+args.model
-filename = f"data/outputs/out_{method}_{timestamp}.png"
-grid.save(filename)
+if save_grid:
+    # Display images in grid with max_cols columns
+    max_cols = 100
+    ncols = max_cols if numparticles > max_cols else numparticles
+    nrows = int(np.ceil(numparticles / ncols))
+    grid = image_grid(pil_images,nrows,ncols)
+
+    # Save image grid
+    timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
+    if method=="repulsive":
+        method = "repulsive_"+args.model
+    filename = f"data/outputs/out_{method}_{timestamp}.png"
+    grid.save(filename)
+else:
+    timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
+    if method=="repulsive":
+        method = "repulsive_"+args.model
+    filename = f"data/outputs/out_{method}_{timestamp}"
+    os.makedirs(filename, exist_ok=True)
+    for i, pil_image in enumerate(pil_images):
+        pil_image.save(f"{filename}/out_{method}_{timestamp}_{i}.png")

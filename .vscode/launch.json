@@ -13,7 +13,7 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "justMyCode": false,
-            "args": ["--method","repulsive","--model","vggro3"]
+            "args": ["--method","repulsive","--model","vgg"]
         }
     ]
 }
