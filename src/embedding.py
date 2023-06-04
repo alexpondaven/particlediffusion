@@ -224,6 +224,10 @@ class CNN16(nn.Module):
         x = self.conv6(x) # Nx16x1x1
         return x.squeeze(2,3)
 
+class Latent(nn.Module):
+    def forward(self, x):
+        return x.flatten(1)
+    
 class Average(nn.Module):
     def forward(self, x):
         return torch.mean(x, axis=(1,2,3)).unsqueeze(-1)

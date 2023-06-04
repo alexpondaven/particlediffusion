@@ -13,7 +13,7 @@ from datetime import datetime
 
 from src.visualise import image_grid, latent_to_img, decode_latent, output_to_img
 from src.kernel import RBF
-from src.embedding import CNN16, CNN64, Average, AverageDim, VAEAverage, Edges, init_weights, Style, VGG, RuleOfThirds, VGGRo3
+from src.embedding import CNN16, CNN64, Average, AverageDim, VAEAverage, Edges, init_weights, Style, VGG, RuleOfThirds, VGGRo3, Latent
 from src.score_utils import get_sigmas, get_score_input
 from src.denoise_utils import denoise_particles
 from src.steps import Steps
@@ -25,7 +25,7 @@ parser.add_argument("--prompt", type=str, default="", help="prompt")
 parser.add_argument("--seed", type=int, default=1024, help="random seed")
 
 # Diversification method
-parser.add_argument("--method", type=str, default="langevin", help="random, langevin, or repulsive")
+parser.add_argument("--method", type=str, default="repulsive", help="random, langevin, or repulsive")
 parser.add_argument("--noise_level", type=int, default=0, help="noise_level to take steps in")
 parser.add_argument("--num_steps", type=int, default=100, help="no. of steps to take between samples")
 parser.add_argument("--num_samples", type=int, default=10, help="no. of samples to take")
@@ -69,8 +69,8 @@ pipe.enable_model_cpu_offload()
 pipe.enable_xformers_memory_efficient_attention()
 
 ##### PARAMS #############################################################
-prompt = "a humongous cave opening in a rainforest, waterfall in the middle, concept art, by Thomas Kinkade"
-numparticles = 100
+prompt = "a beautiful painting of a tree with autumn flowers on a green hill by the river by Thomas Kinkade"
+numparticles = 10
 single_initial_latent = False
 
 ###########################################################################
@@ -147,6 +147,8 @@ elif "vgg" in args.model:
     model.load_state_dict(torch.load(model_path))
     model = VGGRo3(vgg=model, mode=args.model[3:])
     model.to(torch.device("cuda"))
+elif args.model=="latent":
+    model = Latent()
 
 if args.style:
     model = Style(model)

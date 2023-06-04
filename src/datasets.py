@@ -37,7 +37,7 @@ class StyleDataset(Dataset):
         return x,y
 
 class ArtistDataset(Dataset):
-    def __init__(self, device="cuda", return_scores=False):
+    def __init__(self, device="cuda", return_scores=False, num_styles=20):
         self.img_dir = 'data/styles'
         self.noise_levels = 21
         if return_scores:
@@ -50,6 +50,7 @@ class ArtistDataset(Dataset):
 
         styles = pd.read_csv(f"{self.img_dir}/artists.csv",header=None)
         self.styles = [style.replace(" ", "_") for style in styles[0]]
+        self.styles = self.styles[:num_styles]
         f = open("data/styles/base_prompt.csv",'r')
         subjects = f.readlines()
         self.styles_num = len(subjects)

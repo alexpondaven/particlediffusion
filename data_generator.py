@@ -1,6 +1,6 @@
 # Data generation for experiments
 import os
-os.environ["CUDA_VISIBLE_DEVICES"]="4"
+os.environ["CUDA_VISIBLE_DEVICES"]="2"
 from diffusers import DiffusionPipeline
 import numpy as np
 import random
@@ -35,7 +35,7 @@ import argparse
 
 parser = argparse.ArgumentParser(description="Running diversity steps experiment.")
 parser.add_argument("--mode", type=str, default="artist_max", help="type of dataset to generate")
-parser.add_argument("--subject", type=str, default="cave", help="prompt name")
+parser.add_argument("--subject", type=str, default="tree", help="prompt name")
 args = parser.parse_args()
 
 # Using 512x512 resolution
@@ -51,7 +51,8 @@ pipe.enable_model_cpu_offload()
 pipe.enable_xformers_memory_efficient_attention()
 
 prompt_subjects = {
-    "cave": "a humongous cave opening in a rainforest, waterfall in the middle, concept art"
+    "cave": "a humongous cave opening in a rainforest, waterfall in the middle, concept art",
+    "tree": "a beautiful painting of a tree with autumn flowers on a green hill by the river"
 }
 
 mode = args.mode
@@ -288,7 +289,7 @@ elif mode=="min_div":
                 for i, pil_image in enumerate(pil_images):
                     filename = f"artist{a}_{seg*numparticles + i}"
                     pil_image.save(os.path.join(dst_path , f"{filename}.png"))
-elif mode=="averagedim_all_r1000":
+elif mode=="averagedim_all_r10000":
     ############### AVERAGEDIM ALL RANDOM INITIAL LATENTS
     # Can only repulse each subset of 1k particles
     # Change seed just in case
@@ -301,7 +302,7 @@ elif mode=="averagedim_all_r1000":
     artist_num=0
     numparticles=1000
     segments=10
-    repulsive_strength = 1000
+    repulsive_strength = 10000
     single_initial_latent=False
     init_seed=1000
     gen_repulse(model, artist_num, numparticles, segments, repulsive_strength, single_initial_latent,init_seed)
@@ -325,7 +326,7 @@ elif mode=="vggro3_all_r1000":
     init_seed=2000
     gen_repulse(model, artist_num, numparticles, segments, repulsive_strength, single_initial_latent,init_seed)
     
-elif mode=="vgg_all_r1000":
+elif mode=="vgg_all_r10000":
     ############### VGG ALL RANDOM INITIAL LATENTS
     # Can only repulse each subset of 1k particles
     # Change seed just in case
@@ -338,7 +339,7 @@ elif mode=="vgg_all_r1000":
     artist_num=0
     numparticles=500
     segments=20
-    repulsive_strength = 1000
+    repulsive_strength = 10000
     single_initial_latent=False
     init_seed=4000
     gen_repulse(model, artist_num, numparticles, segments, repulsive_strength, single_initial_latent,init_seed)
