@@ -1,6 +1,6 @@
 # Generate samples taking langevin/random/repulsive steps from an initial latent at different noise levels
 import os
-os.environ["CUDA_VISIBLE_DEVICES"]="2"
+os.environ["CUDA_VISIBLE_DEVICES"]="3"
 import yaml
 import numpy as np
 import random
@@ -69,9 +69,9 @@ pipe.enable_model_cpu_offload()
 pipe.enable_xformers_memory_efficient_attention()
 
 ##### PARAMS #############################################################
-prompt = "a humongous cave opening in a rainforest, waterfall in the middle, concept art, by Alfred Eisenstaedt"
-numparticles = 1000
-single_initial_latent = True
+prompt = "a humongous cave opening in a rainforest, waterfall in the middle, concept art, by Thomas Kinkade"
+numparticles = 100
+single_initial_latent = False
 
 ###########################################################################
 
@@ -155,7 +155,7 @@ if args.style:
 seed=1024
 generator = torch.Generator("cuda").manual_seed(seed)
 
-steps = Steps(init_method="repulsive_series_no_noise") #repulsive_no_noise
+steps = Steps(init_method="repulsive_no_noise") #repulsive_no_noise
 # steps.add_all(method,2)
 # steps.add_list(list(range(10,20)),method,[10]*10)
 # steps.add_list([0,1,2,3],method,[10,10,10,10])
@@ -165,7 +165,7 @@ particles = denoise_particles(
     correction_step_type="auto",
     addpart_level=addpart_level,
     model=model, 
-    repulsive_strength=10, repulsive_strat="kernel"
+    repulsive_strength=500, repulsive_strat="kernel"
 )
 model.return_conv_act=False
 print("Classifier prediction:", nn.Softmax(dim=1)(model(particles)).argmax(dim=1))

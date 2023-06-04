@@ -90,7 +90,7 @@ class ImagesPathDataset(torch.utils.data.Dataset):
         return img
 
 
-def get_activations(files, model, batch_size=50, dims=2048, device='cpu', max_samples=None):
+def get_activations(files, model, batch_size=50, dims=2048, device='cpu', max_samples=None, gap=False):
     """Calculates the activations of the pool_3 layer for all images.
 
     Params:
@@ -142,8 +142,8 @@ def get_activations(files, model, batch_size=50, dims=2048, device='cpu', max_sa
 
         # If model output is not scalar, apply global spatial average pooling.
         # This happens if you choose a dimensionality not equal 2048.
-        # if pred.size(2) != 1 or pred.size(3) != 1:
-        #     pred = adaptive_avg_pool2d(pred, output_size=(1, 1))
+        if gap and (pred.size(2) != 1 or pred.size(3) != 1):
+            pred = adaptive_avg_pool2d(pred, output_size=(1, 1))
 
         pred = pred.squeeze(3).squeeze(2).cpu().numpy()
         pred_arr.append(pred)

@@ -133,7 +133,7 @@ def repulsive_step_parallel(
             score_sum = torch.sum(scores,dim=0)
 
         # Repulsive term TODO: vectorize this for loop
-        new_particles = torch.empty(particles.shape)
+        new_particles = torch.empty(particles.shape, device=device)
         for i in range(n):
             if repulsive_strat=="kernel":
                 # Pushforward/Chain rule

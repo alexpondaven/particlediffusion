@@ -99,8 +99,8 @@ def correct_particles(
             scores = get_score(particles, sigma, t, config)
             particles = repulsive_step_parallel(particles, scores, phi_history, model, kernel, generator, 
                                                 step_size=step_size, repulsive_strength=repulsive_strength,repulsive_strat=repulsive_strat,add_noise=add_noise)
-            with torch.no_grad():
-                print(f"Correction {i} spread: SD - {spread(particles)} embedding - {spread(model(particles))}")
+            # with torch.no_grad():
+            #     print(f"Correction {i} spread: SD - {spread(particles)} embedding - {spread(model(particles))}")
     elif correction_method=="repulsive_series" or correction_method=="repulsive_series_no_noise":
         add_noise = (correction_method=="repulsive_series")
         # Parallel particles
