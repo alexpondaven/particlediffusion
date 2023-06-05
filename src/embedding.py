@@ -279,14 +279,19 @@ class RuleOfThirds(nn.Module):
 
 # Rule of thirds on VGG features
 class VGGRo3(nn.Module):
-    def __init__(self, vgg, mode="ro3"):
+    def __init__(self, vgg, mode="ro3", noise_cond=False):
         super().__init__()
         self.vgg = vgg
         self.mode = mode
+        self.noise_cond = noise_cond
 
-    def forward(self, x):
+    def forward(self, x, lvl=None):
         # Nx64x4x4
-        x = self.vgg(x)
+        if self.noise_cond:
+            x = self.vgg(x, lvl)
+        else:
+            x = self.vgg(x)
+        
         if self.mode=="dc_average":
             ## DC over 4x4 spatial
             dc_spatial = torch.mean(x, axis=(2,3))

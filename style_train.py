@@ -1,7 +1,7 @@
 # Train style classification model on given latent data
 import os
 os.environ["CUDA_VISIBLE_DEVICES"]="2"
-EXP_NAME = "artist_noise_classifier2"
+EXP_NAME = "noise_scaleloss"
 
 from src.embedding import CNN64, CNN16, init_weights, AverageDim, Average, VAEAverage, Style, VGG, VGG_dropout, VGG_noise
 from src.datasets import StyleDataset, ArtistDataset
@@ -56,5 +56,5 @@ timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
 os.makedirs(f"data/model_chk/exp_{timestamp}", exist_ok=True)
 exp = f"exp_{timestamp}/{EXP_NAME}"
 train_losses, val_losses, train_accs, val_accs = train(exp, model, criterion, epochs, opt, train_dl, val_dl, dataset.noise_levels, 
-                                                       noise_cond=noise)
+                                                       noise_cond=noise, loss_noise_scaling=True)
 np.savez(f"data/model_chk/{exp}.npz", train_losses=train_losses, val_losses=val_losses, train_accs=train_accs, val_accs=val_accs)

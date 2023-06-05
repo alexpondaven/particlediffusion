@@ -1,6 +1,6 @@
 # Generate samples taking langevin/random/repulsive steps from an initial latent at different noise levels
 import os
-os.environ["CUDA_VISIBLE_DEVICES"]="3"
+os.environ["CUDA_VISIBLE_DEVICES"]="6"
 import yaml
 import numpy as np
 import random
@@ -13,7 +13,7 @@ from datetime import datetime
 
 from src.visualise import image_grid, latent_to_img, decode_latent, output_to_img
 from src.kernel import RBF
-from src.embedding import CNN16, CNN64, Average, AverageDim, VAEAverage, Edges, init_weights, Style, VGG, RuleOfThirds, VGGRo3, Latent
+from src.embedding import CNN16, CNN64, Average, AverageDim, VAEAverage, Edges, init_weights, Style, VGG, RuleOfThirds, VGGRo3, Latent, VGG_noise
 from src.score_utils import get_sigmas, get_score_input
 from src.denoise_utils import denoise_particles
 from src.steps import Steps
@@ -133,13 +133,25 @@ elif args.model=="edges":
     model=Edges()
 elif args.model=="ro3":
     model=RuleOfThirds()
+elif args.model=="vgg_noise":
+    num_outputs = 20
+    model = VGG_noise(num_outputs=num_outputs, logsoftmax=False, return_conv_act=True)
+    model_path ='data/model_chk/artist_noise_classifier_epoch2000_final.pt'
+    model.load_state_dict(torch.load(model_path))
+    model.to(torch.device("cuda"))
+elif "vgg_noise" in args.model:
+    num_outputs = 20
+    model = VGG_noise(num_outputs=num_outputs, logsoftmax=False, return_pre_fconv=True)
+    model_path ='data/model_chk/artist_noise_classifier_epoch2000_final.pt'
+    model.load_state_dict(torch.load(model_path))
+    model = VGGRo3(vgg=model, mode=args.model[9:])
+    model.to(torch.device("cuda"))
 elif args.model=="vgg":
     num_outputs = 20
     model = VGG(num_outputs=num_outputs, logsoftmax=False, return_conv_act=True)
     model_path ='data/model_chk/artist_classifier_epoch100.pt'
     model.load_state_dict(torch.load(model_path))
     model.to(torch.device("cuda"))
-    alpha = 500
 elif "vgg" in args.model:
     num_outputs = 20
     model = VGG(num_outputs=num_outputs, logsoftmax=False, return_pre_fconv=True)
@@ -167,10 +179,14 @@ particles = denoise_particles(
     correction_step_type="auto",
     addpart_level=addpart_level,
     model=model, 
-    repulsive_strength=0, repulsive_strat="kernel"
+    repulsive_strength=800, repulsive_strat="kernel"
 )
 model.return_conv_act=False
-print("Classifier prediction:", nn.Softmax(dim=1)(model(particles)).argmax(dim=1))
+if type(model)==VGG_noise:
+    lvl_input = torch.ones(len(particles), device=device) / len(config['timesteps'])
+    print("Classifier prediction:", nn.Softmax(dim=1)(model(particles, lvl_input)).argmax(dim=1))
+else:
+    print("Classifier prediction:", nn.Softmax(dim=1)(model(particles)).argmax(dim=1))
 ######################################################################
 
 

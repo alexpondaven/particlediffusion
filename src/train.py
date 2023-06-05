@@ -4,7 +4,7 @@ import torch
 import csv
 
 # Train model
-def train(exp_name, model, criterion, epochs, opt, train_dl, val_dl, noise_levels, noise_cond=False, device="cuda"):
+def train(exp_name, model, criterion, epochs, opt, train_dl, val_dl, noise_levels, noise_cond=False, device="cuda", loss_noise_scaling=True):
    
     # Lists to track training progress
     train_losses = []
@@ -39,7 +39,10 @@ def train(exp_name, model, criterion, epochs, opt, train_dl, val_dl, noise_level
                 lvl_input = lvl_idx / noise_levels
                 pred = model(model_input, lvl_input)
                 # Give higher weight to later noise levels
-                loss = torch.mean(criterion(pred, y_train) * (lvl_idx + 1))
+                if loss_noise_scaling:
+                    loss = torch.mean(criterion(pred, y_train) * (lvl_idx + 1))
+                else:
+                    loss = torch.mean(criterion(pred, y_train))
             else:
                 pred = model(model_input)
                 loss = criterion(pred, y_train)
@@ -73,10 +76,13 @@ def train(exp_name, model, criterion, epochs, opt, train_dl, val_dl, noise_level
                 for noise_level in range(noise_levels):
                     model_input = x_val[:,noise_level,...]
                     if noise_cond:
-                        lvl_input = torch.ones(n, device=device) / noise_levels
+                        lvl_input = noise_level * torch.ones(n, device=device) / noise_levels
                         pred = model(model_input, lvl_input)
                         # TODO: ablation if noise level loss scaling is worth it
-                        loss = torch.mean(criterion(pred, y_val) * (noise_level+1))
+                        if loss_noise_scaling:
+                            loss = torch.mean(criterion(pred, y_val) * (noise_level+1))
+                        else:
+                            loss = torch.mean(criterion(pred, y_val))
                     else:
                         pred = model(model_input)
                         loss = criterion(pred, y_val)

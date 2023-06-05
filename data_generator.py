@@ -1,6 +1,6 @@
 # Data generation for experiments
 import os
-os.environ["CUDA_VISIBLE_DEVICES"]="5"
+os.environ["CUDA_VISIBLE_DEVICES"]="1"
 from diffusers import DiffusionPipeline
 import numpy as np
 import random
@@ -26,7 +26,7 @@ from src.kernel import RBF
 from src.embedding import CNN64, CNN16, init_weights, AverageDim, Average, VAEAverage, Style
 from src.denoise_utils import denoise_particles, denoise
 from src.steps import Steps
-from src.embedding import CNN16, CNN64, Average, AverageDim, VAEAverage, Edges, init_weights, Style, VGG, RuleOfThirds, VGGRo3
+from src.embedding import CNN16, CNN64, Average, AverageDim, VAEAverage, Edges, init_weights, Style, VGG, RuleOfThirds, VGGRo3, VGG_noise
 
 import torch.nn as nn
 import torch.nn.functional as F
@@ -34,9 +34,9 @@ from collections import deque
 import argparse
 
 parser = argparse.ArgumentParser(description="Running diversity steps experiment.")
-parser.add_argument("--mode", type=str, default="artist_max", help="type of dataset to generate")
-parser.add_argument("--subject", type=str, default="vase", help="prompt name")
-parser.add_argument("--artistnum", type=int, default=0, help="number of artist (-1 if no artist)")
+parser.add_argument("--mode", type=str, default="min_div", help="type of dataset to generate")
+parser.add_argument("--subject", type=str, default="cave", help="prompt name")
+parser.add_argument("--artistnum", type=int, default=-1, help="number of artist (-1 if no artist)")
 args = parser.parse_args()
 
 # Using 512x512 resolution
@@ -61,7 +61,7 @@ mode = args.mode
 subject = args.subject
 artistnum = args.artistnum
 
-def gen_repulse(numparticles, segments, single_initial_latent,init_seed, repulsive=True, model=None, repulsive_strength=None):
+def gen_repulse(numparticles, segments, single_initial_latent,init_seed, repulsive=True, model=None, repulsive_strength=None, langevin=False):
     # For each segment, generate numparticles of artist_num using kernel repulsion in model space
     if single_initial_latent:
         num_init_latents = 1
@@ -105,7 +105,7 @@ def gen_repulse(numparticles, segments, single_initial_latent,init_seed, repulsi
             prompt = f"{prompt_subjects[subject]}"
         else:
             artists = pd.read_csv("data/styles/artists.csv",header=None)
-            artist = artists[0][artist_num]
+            artist = artists[0][artistnum]
             foldername = artist.replace(" ", "_")
             filename = f"artist{artistnum}"
             prompt = f"{prompt_subjects[subject]}, by {artist}"
@@ -120,6 +120,8 @@ def gen_repulse(numparticles, segments, single_initial_latent,init_seed, repulsi
                 }
         if repulsive:
             steps = Steps(init_method="repulsive_no_noise") #repulsive_no_noise
+            if langevin:
+                steps.add_all("repulsive",1)
             latents = denoise_particles(
                 config, generator, num_particles=numparticles, steps=steps.steps,
                 correction_step_type="auto",
@@ -129,6 +131,8 @@ def gen_repulse(numparticles, segments, single_initial_latent,init_seed, repulsi
             )
         else:
             steps = Steps(init_method="score")
+            if langevin:
+                steps.add_all("langevin",1)
             latents = denoise_particles(
                     config, generator, num_particles=numparticles, steps=steps.steps,
                     correction_step_type="auto",
@@ -255,12 +259,21 @@ elif mode=="min_div":
     # Change seed just in case
     # One artist 10k
     # Note: original base min_div for first 3 prompts had seed 9000
-    artist_num=0
+    numparticles=1000
+    segments = 10
+    single_initial_latent=False # TODO put this outside as argument to script
+    init_seed = 1000
+    gen_repulse(numparticles, segments, single_initial_latent,init_seed, repulsive=False)
+elif mode=="langevin":
+    ############### MINIMUM DIVERSITY WITH LANGEVIN
+    # Change seed just in case
+    # One artist 10k
+    # Note: original base min_div for first 3 prompts had seed 9000
     numparticles=1000
     segments = 10
     single_initial_latent=False
-    init_seed = 1000
-    gen_repulse(numparticles, segments, single_initial_latent,init_seed, repulsive=False)
+    init_seed = 8000
+    gen_repulse(numparticles, segments, single_initial_latent,init_seed, repulsive=False, langevin=True)
 elif mode=="averagedim_all_r1000":
     ############### AVERAGEDIM ALL RANDOM INITIAL LATENTS
     # Can only repulse each subset of 1k particles
@@ -312,7 +325,7 @@ elif mode=="vgg_all_r10000":
     single_initial_latent=False
     init_seed=4000
     gen_repulse(numparticles, segments, single_initial_latent,init_seed, model=model, repulsive_strength=repulsive_strength)
-elif mode=="ro3_all_r500":
+elif mode=="ro3_all_r1000":
     ############### Rule of thirds ALL RANDOM INITIAL LATENTS
     # Can only repulse each subset of 1k particles
     # Change seed just in case
@@ -324,7 +337,7 @@ elif mode=="ro3_all_r500":
     single_initial_latent=False
     init_seed=3000
     gen_repulse(numparticles, segments, single_initial_latent,init_seed, model=model, repulsive_strength=repulsive_strength)
-elif mode=="cnn16_all_r500":
+elif mode=="cnn16_all_r10000":
     ############### CNN16 ALL RANDOM INITIAL LATENTS
     # Can only repulse each subset of 1k particles
     # Change seed just in case
@@ -335,7 +348,7 @@ elif mode=="cnn16_all_r500":
     model.to(torch.device("cuda"))
     numparticles=500
     segments=20
-    repulsive_strength = 500
+    repulsive_strength = 10000
     single_initial_latent=False
     init_seed=5000
     gen_repulse(numparticles, segments, single_initial_latent,init_seed, model=model, repulsive_strength=repulsive_strength)
@@ -355,5 +368,21 @@ elif mode=="vgg_dc_channel_all_r1000":
     repulsive_strength = 1000
     single_initial_latent=False
     init_seed=6000
+    gen_repulse(numparticles, segments, single_initial_latent,init_seed, model=model, repulsive_strength=repulsive_strength)
+elif mode=="vgg_noise_all_r1000":
+    ############### VGG ALL RANDOM INITIAL LATENTS
+    # Can only repulse each subset of 1k particles
+    # Change seed just in case
+    # One artist 10k
+    num_outputs = 20
+    model = VGG_noise(num_outputs=num_outputs, logsoftmax=False, return_conv_act=True)
+    model_path ='data/model_chk/artist_noise_classifier_epoch2000_final.pt'
+    model.load_state_dict(torch.load(model_path))
+    model.to(torch.device("cuda"))
+    numparticles=500
+    segments=20
+    repulsive_strength = 1000
+    single_initial_latent=False
+    init_seed=4000
     gen_repulse(numparticles, segments, single_initial_latent,init_seed, model=model, repulsive_strength=repulsive_strength)
 

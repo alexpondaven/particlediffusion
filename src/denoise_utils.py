@@ -81,6 +81,7 @@ def correct_particles(
     kernel=None,
     repulsive_strength=10,
     repulsive_strat="kernel",
+    noise_cond=None
     ):
     """ At certain noise scale (step t), apply correction steps to all particles
         particles: N particles in the diffusion process
@@ -98,7 +99,8 @@ def correct_particles(
         for i in range(correction_steps):
             scores = get_score(particles, sigma, t, config)
             particles = repulsive_step_parallel(particles, scores, phi_history, model, kernel, generator, 
-                                                step_size=step_size, repulsive_strength=repulsive_strength,repulsive_strat=repulsive_strat,add_noise=add_noise)
+                                                step_size=step_size, repulsive_strength=repulsive_strength,repulsive_strat=repulsive_strat,add_noise=add_noise,
+                                                noise_cond=noise_cond)
             # with torch.no_grad():
             #     print(f"Correction {i} spread: SD - {spread(particles)} embedding - {spread(model(particles))}")
     elif correction_method=="repulsive_series" or correction_method=="repulsive_series_no_noise":
@@ -179,7 +181,7 @@ def denoise_particles(
         t = t.to(device)
         step_index = (config['timesteps'] == t).nonzero().item()
         sigma = sigmas[step_index]
-        # noise_cond = torch.ones(len(particles), device=device) / len(config['timesteps'])
+        noise_cond = torch.ones(len(particles), device=device) / len(config['timesteps'])
 
         # Create particles
         if i==addpart_level:
@@ -198,7 +200,7 @@ def denoise_particles(
                 kernel=kernel,
                 repulsive_strength=repulsive_strength,
                 repulsive_strat=repulsive_strat,
-                # noise_cond=noise_cond
+                noise_cond=noise_cond
             )
         
         # Automatic step_size using sigmas
@@ -224,7 +226,7 @@ def denoise_particles(
                     kernel=kernel,
                     repulsive_strength=repulsive_strength,
                     repulsive_strat=repulsive_strat,
-                    # noise_cond=noise_cond
+                    noise_cond=noise_cond
                 )
     
     return particles

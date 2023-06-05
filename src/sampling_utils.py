@@ -4,7 +4,7 @@
 import torch
 # from torch.func import jacrev
 from src.embedding import init_weights
-from src.embedding import CNN16, CNN64
+from src.embedding import CNN16, CNN64, VGG_noise
 import random
 from src.score_utils import get_score
 
@@ -59,6 +59,7 @@ def repulsive_step_parallel(
         add_noise = True,
         step_size=0.2,
         repulsive_strength=10, # strength of repulsive term
+        noise_cond=None,
         phi_history_size=50,
         repulsive_strat = "kernel",
         device="cuda",
@@ -96,7 +97,10 @@ def repulsive_step_parallel(
             # Embed latent to smaller dimension
             model_input = particles
             with torch.no_grad():
-                phi = model(model_input)
+                if type(model)==VGG_noise:
+                    phi = model(model_input, noise_cond)
+                else:
+                    phi = model(model_input)
 
             # Add to phi_history FIFO
             if phi_history:
@@ -119,7 +123,10 @@ def repulsive_step_parallel(
             # If batch too large
             grads = []
             for i in range(n):
-                grad = torch.autograd.functional.jacobian(model, model_input[i].unsqueeze(0))
+                if type(model)==VGG_noise:
+                    grad = torch.autograd.functional.jacobian(model, (model_input[i].unsqueeze(0), noise_cond))[0]
+                else:
+                    grad = torch.autograd.functional.jacobian(model, model_input[i].unsqueeze(0))
                 grads.append(grad[0,:,0,...])
             grads = torch.stack(grads)
             
