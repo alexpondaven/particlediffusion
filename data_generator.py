@@ -1,6 +1,6 @@
 # Data generation for experiments
 import os
-os.environ["CUDA_VISIBLE_DEVICES"]="2"
+os.environ["CUDA_VISIBLE_DEVICES"]="5"
 from diffusers import DiffusionPipeline
 import numpy as np
 import random
@@ -35,7 +35,8 @@ import argparse
 
 parser = argparse.ArgumentParser(description="Running diversity steps experiment.")
 parser.add_argument("--mode", type=str, default="artist_max", help="type of dataset to generate")
-parser.add_argument("--subject", type=str, default="tree", help="prompt name")
+parser.add_argument("--subject", type=str, default="vase", help="prompt name")
+parser.add_argument("--artistnum", type=int, default=0, help="number of artist (-1 if no artist)")
 args = parser.parse_args()
 
 # Using 512x512 resolution
@@ -52,13 +53,15 @@ pipe.enable_xformers_memory_efficient_attention()
 
 prompt_subjects = {
     "cave": "a humongous cave opening in a rainforest, waterfall in the middle, concept art",
-    "tree": "a beautiful painting of a tree with autumn flowers on a green hill by the river"
+    "tree": "a beautiful painting of a tree with autumn flowers on a green hill by the river",
+    "vase": "painting of a beautiful vase of flowers"
 }
 
 mode = args.mode
 subject = args.subject
+artistnum = args.artistnum
 
-def gen_repulse(model, artist_num, numparticles, segments, repulsive_strength, single_initial_latent,init_seed):
+def gen_repulse(numparticles, segments, single_initial_latent,init_seed, repulsive=True, model=None, repulsive_strength=None):
     # For each segment, generate numparticles of artist_num using kernel repulsion in model space
     if single_initial_latent:
         num_init_latents = 1
@@ -95,33 +98,49 @@ def gen_repulse(model, artist_num, numparticles, segments, repulsive_strength, s
                 "timesteps": timesteps,
                 }
         
-        artists = pd.read_csv("data/styles/artists.csv",header=None)
-        for a, artist in enumerate(artists[0]):
-            if a==artist_num:
-                dst_path = os.path.join("data","final", subject,mode, artist.replace(" ", "_"))
-                os.makedirs(dst_path, exist_ok=True)
-                prompt = f"{prompt_subjects[subject]}, by {artist}"
-                init_latents, text_embeddings = get_score_input(prompt, config, generator=generator, device=device, dtype=dtype)
-                config = {**config,
-                        "init_latents": init_latents,
-                        "text_embeddings": text_embeddings
-                        }
-                steps = Steps(init_method="repulsive_no_noise") #repulsive_no_noise
-                latents = denoise_particles(
+        # Name and prompt
+        if artistnum==-1:
+            foldername = "base"
+            filename = "base"
+            prompt = f"{prompt_subjects[subject]}"
+        else:
+            artists = pd.read_csv("data/styles/artists.csv",header=None)
+            artist = artists[0][artist_num]
+            foldername = artist.replace(" ", "_")
+            filename = f"artist{artistnum}"
+            prompt = f"{prompt_subjects[subject]}, by {artist}"
+        dst_path = os.path.join("data","final", subject,mode, foldername)
+        os.makedirs(dst_path, exist_ok=True)
+
+        # Denoise
+        init_latents, text_embeddings = get_score_input(prompt, config, generator=generator, device=device, dtype=dtype)
+        config = {**config,
+                "init_latents": init_latents,
+                "text_embeddings": text_embeddings
+                }
+        if repulsive:
+            steps = Steps(init_method="repulsive_no_noise") #repulsive_no_noise
+            latents = denoise_particles(
+                config, generator, num_particles=numparticles, steps=steps.steps,
+                correction_step_type="auto",
+                addpart_level=addpart_level,
+                model=model, 
+                repulsive_strength=repulsive_strength, repulsive_strat="kernel"
+            )
+        else:
+            steps = Steps(init_method="score")
+            latents = denoise_particles(
                     config, generator, num_particles=numparticles, steps=steps.steps,
                     correction_step_type="auto",
                     addpart_level=addpart_level,
-                    model=model, 
-                    repulsive_strength=repulsive_strength, repulsive_strat="kernel"
                 )
-                # Save results
-                imgs = decode_latent(latents, pipe.vae)
-                imgs = output_to_img(imgs)
-                imgs = (imgs * 255).round().astype("uint8")
-                pil_images = [Image.fromarray(image) for image in imgs]
-                for i, pil_image in enumerate(pil_images):
-                    filename = f"artist{a}_{seg*numparticles + i}"
-                    pil_image.save(os.path.join(dst_path , f"{filename}.png"))
+        # Save results
+        imgs = decode_latent(latents, pipe.vae)
+        imgs = output_to_img(imgs)
+        imgs = (imgs * 255).round().astype("uint8")
+        pil_images = [Image.fromarray(image) for image in imgs]
+        for i, pil_image in enumerate(pil_images):
+            pil_image.save(os.path.join(dst_path , f"{filename}_{seg*numparticles + i}.png"))
 
 
 if mode=="max_div":
@@ -235,61 +254,14 @@ elif mode=="min_div":
     ############### MINIMUM DIVERSITY
     # Change seed just in case
     # One artist 10k
+    # Note: original base min_div for first 3 prompts had seed 9000
     artist_num=0
     numparticles=1000
-    for seg in range(10):
-        seed=1000+seg
-        generator = torch.Generator(device).manual_seed(seed)
-        torch.manual_seed(seed)
-        np.random.seed(seed)
-        random.seed(seed)
-
-        # Settings
-        config = {
-            "pipe": pipe,
-            "height": 512,
-            "width": 512,
-            "num_inference_steps": 20,
-            "num_train_timesteps": 1000,
-            "num_init_latents": numparticles,
-            "batch_size": 50,
-            "cfg": 8,
-            "beta_start": 0.00085,
-            "beta_end": 0.012,
-        }
-        steps = Steps(init_method="score")
-        # Noise levels
-        sigmas, timesteps = get_sigmas(config, device=device)
-        config = {**config,
-                "sigmas": sigmas,
-                "timesteps": timesteps,
-                }
-        
-        artists = pd.read_csv("data/styles/artists.csv",header=None)
-        for a, artist in enumerate(artists[0]):
-            if a==artist_num:
-                dst_path = os.path.join("data","final", subject,mode, artist.replace(" ", "_"))
-                os.makedirs(dst_path, exist_ok=True)
-                prompt = f"{prompt_subjects[subject]}, by {artist}"
-                init_latents, text_embeddings = get_score_input(prompt, config, generator=generator, device=device, dtype=dtype)
-                config = {**config,
-                        "init_latents": init_latents,
-                        "text_embeddings": text_embeddings
-                        }
-                latents = denoise_particles(
-                    config, generator, num_particles=numparticles, steps=steps.steps,
-                    correction_step_type="auto",
-                    addpart_level=None,
-                )
-                # Save results
-                imgs = decode_latent(latents, pipe.vae)
-                imgs = output_to_img(imgs)
-                imgs = (imgs * 255).round().astype("uint8")
-                pil_images = [Image.fromarray(image) for image in imgs]
-                for i, pil_image in enumerate(pil_images):
-                    filename = f"artist{a}_{seg*numparticles + i}"
-                    pil_image.save(os.path.join(dst_path , f"{filename}.png"))
-elif mode=="averagedim_all_r10000":
+    segments = 10
+    single_initial_latent=False
+    init_seed = 1000
+    gen_repulse(numparticles, segments, single_initial_latent,init_seed, repulsive=False)
+elif mode=="averagedim_all_r1000":
     ############### AVERAGEDIM ALL RANDOM INITIAL LATENTS
     # Can only repulse each subset of 1k particles
     # Change seed just in case
@@ -299,13 +271,12 @@ elif mode=="averagedim_all_r10000":
     model_path ='data/model_chk/artist_classifier_epoch100.pt'
     model.load_state_dict(torch.load(model_path))
     model.to(torch.device("cuda"))
-    artist_num=0
     numparticles=1000
     segments=10
-    repulsive_strength = 10000
+    repulsive_strength = 1000
     single_initial_latent=False
     init_seed=1000
-    gen_repulse(model, artist_num, numparticles, segments, repulsive_strength, single_initial_latent,init_seed)
+    gen_repulse(numparticles, segments, single_initial_latent,init_seed, model=model, repulsive_strength=repulsive_strength)
     
 elif mode=="vggro3_all_r1000":
     ############### AVERAGEDIM ALL RANDOM INITIAL LATENTS
@@ -318,13 +289,12 @@ elif mode=="vggro3_all_r1000":
     model.load_state_dict(torch.load(model_path))
     model = VGGRo3(vgg=model, mode="ro3")
     model.to(torch.device("cuda"))
-    artist_num=0
     numparticles=500
     segments=20
     repulsive_strength = 1000
     single_initial_latent=False
     init_seed=2000
-    gen_repulse(model, artist_num, numparticles, segments, repulsive_strength, single_initial_latent,init_seed)
+    gen_repulse(numparticles, segments, single_initial_latent,init_seed, model=model, repulsive_strength=repulsive_strength)
     
 elif mode=="vgg_all_r10000":
     ############### VGG ALL RANDOM INITIAL LATENTS
@@ -336,26 +306,24 @@ elif mode=="vgg_all_r10000":
     model_path ='data/model_chk/artist_classifier_epoch100.pt'
     model.load_state_dict(torch.load(model_path))
     model.to(torch.device("cuda"))
-    artist_num=0
     numparticles=500
     segments=20
     repulsive_strength = 10000
     single_initial_latent=False
     init_seed=4000
-    gen_repulse(model, artist_num, numparticles, segments, repulsive_strength, single_initial_latent,init_seed)
+    gen_repulse(numparticles, segments, single_initial_latent,init_seed, model=model, repulsive_strength=repulsive_strength)
 elif mode=="ro3_all_r500":
     ############### Rule of thirds ALL RANDOM INITIAL LATENTS
     # Can only repulse each subset of 1k particles
     # Change seed just in case
     # One artist 10k
     model = RuleOfThirds().to(torch.device("cuda"))
-    artist_num=0
     numparticles=500
     segments=20
     repulsive_strength = 1000
     single_initial_latent=False
     init_seed=3000
-    gen_repulse(model, artist_num, numparticles, segments, repulsive_strength, single_initial_latent,init_seed)
+    gen_repulse(numparticles, segments, single_initial_latent,init_seed, model=model, repulsive_strength=repulsive_strength)
 elif mode=="cnn16_all_r500":
     ############### CNN16 ALL RANDOM INITIAL LATENTS
     # Can only repulse each subset of 1k particles
@@ -365,13 +333,12 @@ elif mode=="cnn16_all_r500":
     model_path = "model16.pt"
     model.load_state_dict(torch.load(model_path))
     model.to(torch.device("cuda"))
-    artist_num=0
     numparticles=500
     segments=20
     repulsive_strength = 500
     single_initial_latent=False
     init_seed=5000
-    gen_repulse(model, artist_num, numparticles, segments, repulsive_strength, single_initial_latent,init_seed)
+    gen_repulse(numparticles, segments, single_initial_latent,init_seed, model=model, repulsive_strength=repulsive_strength)
 elif mode=="vgg_dc_channel_all_r1000":
     ############### Rule of thirds ALL RANDOM INITIAL LATENTS
     # Can only repulse each subset of 1k particles
@@ -383,11 +350,10 @@ elif mode=="vgg_dc_channel_all_r1000":
     model.load_state_dict(torch.load(model_path))
     model = VGGRo3(vgg=model, mode="dc_channel")
     model.to(torch.device("cuda"))
-    artist_num=0
     numparticles=500
     segments=20
     repulsive_strength = 1000
     single_initial_latent=False
     init_seed=6000
-    gen_repulse(model, artist_num, numparticles, segments, repulsive_strength, single_initial_latent,init_seed)
+    gen_repulse(numparticles, segments, single_initial_latent,init_seed, model=model, repulsive_strength=repulsive_strength)
 

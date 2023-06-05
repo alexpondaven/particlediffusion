@@ -4,7 +4,7 @@ import torch
 import csv
 
 # Train model
-def train(model, criterion, epochs, opt, train_dl, val_dl, noise_levels, score=False, device="cuda"):
+def train(exp_name, model, criterion, epochs, opt, train_dl, val_dl, noise_levels, noise_cond=False, device="cuda"):
    
     # Lists to track training progress
     train_losses = []
@@ -35,14 +35,16 @@ def train(model, criterion, epochs, opt, train_dl, val_dl, noise_levels, score=F
             # choose random noise level
             lvl_idx = torch.randint(0, noise_levels, (n,), device=device)
             model_input = torch.stack([x_train[i,lvl_idx[i],...] for i in range(n)])
-            if score:
+            if noise_cond:
                 lvl_input = lvl_idx / noise_levels
                 pred = model(model_input, lvl_input)
+                # Give higher weight to later noise levels
+                loss = torch.mean(criterion(pred, y_train) * (lvl_idx + 1))
             else:
                 pred = model(model_input)
+                loss = criterion(pred, y_train)
             
-            # Give higher weight to later noise levels
-            loss = torch.mean(criterion(pred, y_train) * (lvl_idx + 1))
+           
 
             loss.backward()
             opt.step()
@@ -70,14 +72,15 @@ def train(model, criterion, epochs, opt, train_dl, val_dl, noise_levels, score=F
                 # evaluate at all noise levels
                 for noise_level in range(noise_levels):
                     model_input = x_val[:,noise_level,...]
-                    if score:
+                    if noise_cond:
                         lvl_input = torch.ones(n, device=device) / noise_levels
                         pred = model(model_input, lvl_input)
+                        # TODO: ablation if noise level loss scaling is worth it
+                        loss = torch.mean(criterion(pred, y_val) * (noise_level+1))
                     else:
                         pred = model(model_input)
+                        loss = criterion(pred, y_val)
                         
-                    loss = torch.mean(criterion(pred, y_val) * (noise_level+1))
-
                     confidence, predicted = torch.max(pred.data, 1)
                     correct = (predicted == y_val).sum().item()
 
@@ -101,15 +104,15 @@ def train(model, criterion, epochs, opt, train_dl, val_dl, noise_levels, score=F
             print('loss = {}      accuracy = {}      val_loss = {}      val_accuracy: {}'.format(train_loss, train_acc, val_loss, val_acc))
 
         if epoch % 500 ==0 and epoch!=0:
-            torch.save(model.state_dict(), f'data/model_chk/artist_noise_classifier_epoch{epoch+1}.pt')
-            torch.save(opt.state_dict(), f'data/model_chk/artist_noise_classifier_opt_epoch{epoch+1}.pt')
+            torch.save(model.state_dict(), f'data/model_chk/{exp_name}_epoch{epoch+1}.pt')
+            torch.save(opt.state_dict(), f'data/model_chk/{exp_name}_opt_epoch{epoch+1}.pt')
 
     print('Final training loss =   {}      final training accuracy =   {}'.format(train_loss, train_acc))
     print('Final validation loss = {}      final validation accuracy = {}'.format(val_loss, val_acc))
 
     # Save state dict for future loading of trained model
-    torch.save(model.state_dict(), f'data/model_chk/artist_noise_classifier_epoch{epoch+1}_final.pt')
-    torch.save(opt.state_dict(), f'data/model_chk/artist_noise_classifier_opt_epoch{epoch+1}_final.pt')
+    torch.save(model.state_dict(), f'data/model_chk/{exp_name}_epoch{epoch+1}_final.pt')
+    torch.save(opt.state_dict(), f'data/model_chk/{exp_name}_opt_epoch{epoch+1}_final.pt')
     print('Saved state dict')
 
     return train_losses, validation_losses, train_accs, validation_accs

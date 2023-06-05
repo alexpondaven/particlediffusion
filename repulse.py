@@ -69,8 +69,8 @@ pipe.enable_model_cpu_offload()
 pipe.enable_xformers_memory_efficient_attention()
 
 ##### PARAMS #############################################################
-prompt = "a beautiful painting of a tree with autumn flowers on a green hill by the river by Thomas Kinkade"
-numparticles = 10
+prompt = "painting of a beautiful vase of flowers by Thomas Kinkade"
+numparticles = 2
 single_initial_latent = False
 
 ###########################################################################
@@ -167,7 +167,7 @@ particles = denoise_particles(
     correction_step_type="auto",
     addpart_level=addpart_level,
     model=model, 
-    repulsive_strength=500, repulsive_strat="kernel"
+    repulsive_strength=0, repulsive_strat="kernel"
 )
 model.return_conv_act=False
 print("Classifier prediction:", nn.Softmax(dim=1)(model(particles)).argmax(dim=1))

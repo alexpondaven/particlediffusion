@@ -179,6 +179,7 @@ def denoise_particles(
         t = t.to(device)
         step_index = (config['timesteps'] == t).nonzero().item()
         sigma = sigmas[step_index]
+        # noise_cond = torch.ones(len(particles), device=device) / len(config['timesteps'])
 
         # Create particles
         if i==addpart_level:
@@ -196,7 +197,8 @@ def denoise_particles(
                 model=model, 
                 kernel=kernel,
                 repulsive_strength=repulsive_strength,
-                repulsive_strat=repulsive_strat
+                repulsive_strat=repulsive_strat,
+                # noise_cond=noise_cond
             )
         
         # Automatic step_size using sigmas
@@ -221,7 +223,8 @@ def denoise_particles(
                     model=model, 
                     kernel=kernel,
                     repulsive_strength=repulsive_strength,
-                    repulsive_strat=repulsive_strat
+                    repulsive_strat=repulsive_strat,
+                    # noise_cond=noise_cond
                 )
     
     return particles
