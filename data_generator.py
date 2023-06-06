@@ -1,6 +1,6 @@
 # Data generation for experiments
 import os
-os.environ["CUDA_VISIBLE_DEVICES"]="1"
+os.environ["CUDA_VISIBLE_DEVICES"]="2"
 from diffusers import DiffusionPipeline
 import numpy as np
 import random
@@ -337,7 +337,7 @@ elif mode=="ro3_all_r1000":
     single_initial_latent=False
     init_seed=3000
     gen_repulse(numparticles, segments, single_initial_latent,init_seed, model=model, repulsive_strength=repulsive_strength)
-elif mode=="cnn16_all_r10000":
+elif mode=="cnn16_all_r1000":
     ############### CNN16 ALL RANDOM INITIAL LATENTS
     # Can only repulse each subset of 1k particles
     # Change seed just in case
@@ -348,7 +348,7 @@ elif mode=="cnn16_all_r10000":
     model.to(torch.device("cuda"))
     numparticles=500
     segments=20
-    repulsive_strength = 10000
+    repulsive_strength = 1000
     single_initial_latent=False
     init_seed=5000
     gen_repulse(numparticles, segments, single_initial_latent,init_seed, model=model, repulsive_strength=repulsive_strength)

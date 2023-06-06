@@ -42,18 +42,29 @@ def get_metric(f, metric):
         sigma = np.cov(sims, rowvar=False)
     return mu, sigma
 
-def fid_metric(exp, metrics=['stats','local','gram64']):
+def fid_metric(exp, metrics=['stats','local','gram64'], subject='cave', artistnum=-1):
+    if artistnum==-1:
+        foldername="base"
+    else:
+        foldername=f"artist_{artistnum}"
     # Calculate fid metrics
     fid_metrics = {}
     for metric in metrics:
-        max_div_path = f"data/final/cave/max_div_{metric}.npz"
-        exp_path = f"data/final/cave/{exp}_{metric}.npz"
+        max_div_path = f"data/final/{subject}/max_div_{metric}.npz"
+        metrics_folder = f"data/final/{subject}/metrics_{foldername}"
+        if metric=="max_div2":
+            exp_path = f"data/final/{subject}/max_div2_{metric}.npz"
+        else:
+            exp_path = f"{metrics_folder}/{exp}_{metric}.npz"
+            os.makedirs(metrics_folder, exist_ok=True)
+        
+        # Check if max_div exists
         if os.path.exists(max_div_path):
             m0, s0 = load_statistics(max_div_path)
         else:
             # Read image sets
             f = []
-            for file in glob(f"data/final/cave/max_div/*/*.png"):
+            for file in glob(f"data/final/{subject}/max_div/*/*.png"):
                 f.append(file)
             m0,s0 = get_metric(f, metric)
             save_statistics(max_div_path,m0,s0)
@@ -62,7 +73,14 @@ def fid_metric(exp, metrics=['stats','local','gram64']):
             m,s = load_statistics(exp_path)
         else:
             f = []
-            for file in glob(f"data/final/cave/{exp}/*/*.png"):
+            if metric=="max_div2":
+                subset="*"
+            elif artistnum==-1:
+                subset="base"
+            else:
+                ### TODO: CHOOSE ARTIST CORRESPONDING TO ARTISTNUM
+                subset="Thomas_Kinkade"
+            for file in glob(f"data/final/{subject}/{exp}/{subset}/*.png"):
                 f.append(file)
             m, s = get_metric(f, metric)
             save_statistics(exp_path,m,s)
