@@ -4,7 +4,7 @@
 import torch
 # from torch.func import jacrev
 from src.embedding import init_weights
-from src.embedding import CNN16, CNN64, VGG_noise
+from src.embedding import CNN16, CNN64, VGG_noise, VGGRo3
 import random
 from src.score_utils import get_score
 
@@ -97,7 +97,7 @@ def repulsive_step_parallel(
             # Embed latent to smaller dimension
             model_input = particles
             with torch.no_grad():
-                if type(model)==VGG_noise:
+                if type(model)==VGG_noise or (type(model)==VGGRo3 and model.noise_cond):
                     phi = model(model_input, noise_cond)
                 else:
                     phi = model(model_input)

@@ -1,6 +1,6 @@
 # Data generation for experiments
 import os
-os.environ["CUDA_VISIBLE_DEVICES"]="2"
+os.environ["CUDA_VISIBLE_DEVICES"]="7"
 from diffusers import DiffusionPipeline
 import numpy as np
 import random
@@ -36,7 +36,7 @@ import argparse
 parser = argparse.ArgumentParser(description="Running diversity steps experiment.")
 parser.add_argument("--mode", type=str, default="min_div", help="type of dataset to generate")
 parser.add_argument("--subject", type=str, default="cave", help="prompt name")
-parser.add_argument("--artistnum", type=int, default=-1, help="number of artist (-1 if no artist)")
+parser.add_argument("--artistnum", type=int, default=0, help="number of artist (-1 if no artist, -2 if all artist)")
 args = parser.parse_args()
 
 # Using 512x512 resolution
@@ -54,7 +54,8 @@ pipe.enable_xformers_memory_efficient_attention()
 prompt_subjects = {
     "cave": "a humongous cave opening in a rainforest, waterfall in the middle, concept art",
     "tree": "a beautiful painting of a tree with autumn flowers on a green hill by the river",
-    "vase": "painting of a beautiful vase of flowers"
+    "vase": "painting of a beautiful vase of flowers",
+    "parkour": "a portrait of a parkour runner with a black tank top and white running pants, city setting",
 }
 
 mode = args.mode
@@ -103,6 +104,10 @@ def gen_repulse(numparticles, segments, single_initial_latent,init_seed, repulsi
             foldername = "base"
             filename = "base"
             prompt = f"{prompt_subjects[subject]}"
+        elif artistnum==-2:
+            foldername = "all"
+            filename = "all"
+            prompt = f"{prompt_subjects[subject]}, by Thomas Kinkade, Vincent Van Gogh, Leonid Afremov, Claude Monet, Edward Hopper, Norman Rockwell, William-Adolphe Bouguereau, Albert Bierstadt, John Singer Sargent, Pierre-Auguste Renoir, Frida Kahlo, John William Waterhouse, Winslow Homer, Walt Disney, Thomas Moran, Phil Koch, Paul Cézanne, Camille Pissarro, Erin Hanson, Thomas Cole, Raphael, Steve Henderson, Pablo Picasso, Caspar David Friedrich, Ansel Adams, Diego Rivera, Steve McCurry, Bob Ross, John Atkinson Grimshaw, Rob Gonsalves, Paul Gauguin, James Tissot, Edouard Manet, Alphonse Mucha, Alfred Sisley, Fabian Perez, Gustave Courbet, Zaha Hadid, Jean-Léon Gérôme, Carl Larsson, Mary Cassatt, Sandro Botticelli, Daniel Ridgway Knight, Joaquín Sorolla, Andy Warhol, Kehinde Wiley, Alfred Eisenstaedt, Gustav Klimt, Dante Gabriel Rossetti, Tom Thomson"
         else:
             artists = pd.read_csv("data/styles/artists.csv",header=None)
             artist = artists[0][artistnum]
@@ -132,7 +137,8 @@ def gen_repulse(numparticles, segments, single_initial_latent,init_seed, repulsi
         else:
             steps = Steps(init_method="score")
             if langevin:
-                steps.add_all("langevin",1)
+                steps.add_list(list(range(10)),"langevin",[1]*10)
+                # steps.add_all("langevin",1)
             latents = denoise_particles(
                     config, generator, num_particles=numparticles, steps=steps.steps,
                     correction_step_type="auto",
@@ -369,8 +375,8 @@ elif mode=="vgg_dc_channel_all_r1000":
     single_initial_latent=False
     init_seed=6000
     gen_repulse(numparticles, segments, single_initial_latent,init_seed, model=model, repulsive_strength=repulsive_strength)
-elif mode=="vgg_noise_all_r1000":
-    ############### VGG ALL RANDOM INITIAL LATENTS
+elif mode=="vgg_noise_all_r10000":
+    ############### VGG NOISE
     # Can only repulse each subset of 1k particles
     # Change seed just in case
     # One artist 10k
@@ -378,6 +384,23 @@ elif mode=="vgg_noise_all_r1000":
     model = VGG_noise(num_outputs=num_outputs, logsoftmax=False, return_conv_act=True)
     model_path ='data/model_chk/artist_noise_classifier_epoch2000_final.pt'
     model.load_state_dict(torch.load(model_path))
+    model.to(torch.device("cuda"))
+    numparticles=500
+    segments=20
+    repulsive_strength = 10000
+    single_initial_latent=False
+    init_seed=4000
+    gen_repulse(numparticles, segments, single_initial_latent,init_seed, model=model, repulsive_strength=repulsive_strength)
+elif mode=="vgg_noisero3_all_r1000":
+    ############### VGG NOISE WITH RO3
+    # Can only repulse each subset of 1k particles
+    # Change seed just in case
+    # One artist 10k
+    num_outputs = 20
+    model = VGG_noise(num_outputs=num_outputs, logsoftmax=False, return_pre_fconv=True)
+    model_path ='data/model_chk/artist_noise_classifier_epoch2000_final.pt'
+    model.load_state_dict(torch.load(model_path))
+    model = VGGRo3(vgg=model, mode="ro3", noise_cond=True)
     model.to(torch.device("cuda"))
     numparticles=500
     segments=20

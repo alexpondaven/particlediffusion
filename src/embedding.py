@@ -64,12 +64,13 @@ class VGG(nn.Module):
         return x
 
 class VGG_noise(nn.Module):
-    def __init__(self, num_outputs=5, logsoftmax=True, return_conv_act=False):
+    def __init__(self, num_outputs=5, logsoftmax=True, return_conv_act=False, return_pre_fconv=False):
         super().__init__()
 
         self.num_outputs = num_outputs
         self.logsoftmax = logsoftmax
         self.return_conv_act = return_conv_act
+        self.return_pre_fconv = return_pre_fconv
 
         self.conv_layers = []
         self.num_blocks = 4
@@ -95,6 +96,10 @@ class VGG_noise(nn.Module):
             x = conv_layer(x)
             if i != len(self.conv_layers)-1:
                 x = self.maxpool(self.act(x))
+            
+            # Return pre-final conv layer
+            if i==(len(self.conv_layers)-2) and self.return_pre_fconv:
+                return x
         
         x = x.squeeze(-2,-1)
         if self.return_conv_act:

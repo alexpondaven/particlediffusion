@@ -1,6 +1,6 @@
 # Generate samples taking langevin/random/repulsive steps from an initial latent at different noise levels
 import os
-os.environ["CUDA_VISIBLE_DEVICES"]="6"
+os.environ["CUDA_VISIBLE_DEVICES"]="7"
 import yaml
 import numpy as np
 import random
@@ -69,8 +69,8 @@ pipe.enable_model_cpu_offload()
 pipe.enable_xformers_memory_efficient_attention()
 
 ##### PARAMS #############################################################
-prompt = "painting of a beautiful vase of flowers by Thomas Kinkade"
-numparticles = 2
+prompt = "a humongous cave opening in a rainforest, waterfall in the middle, concept art, by Thomas Kinkade, Vincent Van Gogh, Leonid Afremov, Claude Monet, Edward Hopper, Norman Rockwell, William-Adolphe Bouguereau, Albert Bierstadt, John Singer Sargent, Pierre-Auguste Renoir, Frida Kahlo, John William Waterhouse, Winslow Homer, Walt Disney, Thomas Moran, Phil Koch, Paul Cézanne, Camille Pissarro, Erin Hanson, Thomas Cole, Raphael, Steve Henderson, Pablo Picasso, Caspar David Friedrich, Ansel Adams, Diego Rivera, Steve McCurry, Bob Ross, John Atkinson Grimshaw, Rob Gonsalves, Paul Gauguin, James Tissot, Edouard Manet, Alphonse Mucha, Alfred Sisley, Fabian Perez, Gustave Courbet, Zaha Hadid, Jean-Léon Gérôme, Carl Larsson, Mary Cassatt, Sandro Botticelli, Daniel Ridgway Knight, Joaquín Sorolla, Andy Warhol, Kehinde Wiley, Alfred Eisenstaedt, Gustav Klimt, Dante Gabriel Rossetti, Tom Thomson"
+numparticles = 10
 single_initial_latent = False
 
 ###########################################################################
@@ -144,7 +144,7 @@ elif "vgg_noise" in args.model:
     model = VGG_noise(num_outputs=num_outputs, logsoftmax=False, return_pre_fconv=True)
     model_path ='data/model_chk/artist_noise_classifier_epoch2000_final.pt'
     model.load_state_dict(torch.load(model_path))
-    model = VGGRo3(vgg=model, mode=args.model[9:])
+    model = VGGRo3(vgg=model, mode=args.model[9:], noise_cond=True)
     model.to(torch.device("cuda"))
 elif args.model=="vgg":
     num_outputs = 20
@@ -179,7 +179,7 @@ particles = denoise_particles(
     correction_step_type="auto",
     addpart_level=addpart_level,
     model=model, 
-    repulsive_strength=800, repulsive_strat="kernel"
+    repulsive_strength=1000, repulsive_strat="kernel"
 )
 model.return_conv_act=False
 if type(model)==VGG_noise:
