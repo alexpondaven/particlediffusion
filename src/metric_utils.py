@@ -45,6 +45,8 @@ def get_metric(f, metric):
 def fid_metric(exp, metrics=['stats','local','gram64'], subject='cave', artistnum=-1):
     if artistnum==-1:
         foldername="base"
+    elif artistnum==-2:
+        foldername="all"
     else:
         foldername=f"artist_{artistnum}"
     # Calculate fid metrics
@@ -73,10 +75,12 @@ def fid_metric(exp, metrics=['stats','local','gram64'], subject='cave', artistnu
             m,s = load_statistics(exp_path)
         else:
             f = []
-            if metric=="max_div2":
+            if exp=="max_div2":
                 subset="*"
             elif artistnum==-1:
                 subset="base"
+            elif artistnum==-2:
+                subset="all"
             else:
                 ### TODO: CHOOSE ARTIST CORRESPONDING TO ARTISTNUM
                 subset="Thomas_Kinkade"

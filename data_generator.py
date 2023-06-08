@@ -375,7 +375,7 @@ elif mode=="vgg_dc_channel_all_r1000":
     single_initial_latent=False
     init_seed=6000
     gen_repulse(numparticles, segments, single_initial_latent,init_seed, model=model, repulsive_strength=repulsive_strength)
-elif mode=="vgg_noise_all_r10000":
+elif mode=="vgg_noise_all_r1000":
     ############### VGG NOISE
     # Can only repulse each subset of 1k particles
     # Change seed just in case
@@ -387,7 +387,7 @@ elif mode=="vgg_noise_all_r10000":
     model.to(torch.device("cuda"))
     numparticles=500
     segments=20
-    repulsive_strength = 10000
+    repulsive_strength = 1000
     single_initial_latent=False
     init_seed=4000
     gen_repulse(numparticles, segments, single_initial_latent,init_seed, model=model, repulsive_strength=repulsive_strength)
