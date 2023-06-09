@@ -6,7 +6,7 @@ from glob import glob
 import numpy as np
 
 ## Metrics
-def get_metric(f, metric):
+def get_metric(f, metric, return_act=False):
     # Compute metric on f filenames
     fid_dir = "fid" #/pt_inception-2015-12-05-6726825d.pth"
     device = 'cuda'
@@ -14,6 +14,9 @@ def get_metric(f, metric):
         dims = 2048  # 64, 192, 768, 2048
         block_idx = InceptionV3.BLOCK_INDEX_BY_DIM[dims]
         model = InceptionV3([block_idx], model_dir=fid_dir).to(device)
+        if return_act:
+            act = get_activations(f, model, 50, dims, device, None)
+            return act
         mu, sigma = calculate_activation_statistics(f, model, 50, dims, device)
     elif metric=='local':
         dims = 192  # 64, 192, 768, 2048
@@ -23,6 +26,8 @@ def get_metric(f, metric):
         act = get_activations(f, model, 50, dims, device, None)
         act = np.mean(act,axis=1)
         act = act.reshape(act.shape[0], -1)
+        if return_act:
+            return act
         mu = np.mean(act, axis=0)
         sigma = np.cov(act, rowvar=False)
     elif metric=='gram64':
@@ -38,6 +43,8 @@ def get_metric(f, metric):
             sim = gram[i][np.triu_indices(dims)]
             sims.append(sim)
         sims = np.stack(sims)
+        if return_act:
+            return sims
         mu = np.mean(sims, axis=0)
         sigma = np.cov(sims, rowvar=False)
     return mu, sigma

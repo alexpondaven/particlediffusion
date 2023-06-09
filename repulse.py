@@ -69,9 +69,15 @@ pipe.enable_model_cpu_offload()
 pipe.enable_xformers_memory_efficient_attention()
 
 ##### PARAMS #############################################################
-prompt = "a humongous cave opening in a rainforest, waterfall in the middle, concept art, by Thomas Kinkade, Vincent Van Gogh, Leonid Afremov, Claude Monet, Edward Hopper, Norman Rockwell, William-Adolphe Bouguereau, Albert Bierstadt, John Singer Sargent, Pierre-Auguste Renoir, Frida Kahlo, John William Waterhouse, Winslow Homer, Walt Disney, Thomas Moran, Phil Koch, Paul Cézanne, Camille Pissarro, Erin Hanson, Thomas Cole, Raphael, Steve Henderson, Pablo Picasso, Caspar David Friedrich, Ansel Adams, Diego Rivera, Steve McCurry, Bob Ross, John Atkinson Grimshaw, Rob Gonsalves, Paul Gauguin, James Tissot, Edouard Manet, Alphonse Mucha, Alfred Sisley, Fabian Perez, Gustave Courbet, Zaha Hadid, Jean-Léon Gérôme, Carl Larsson, Mary Cassatt, Sandro Botticelli, Daniel Ridgway Knight, Joaquín Sorolla, Andy Warhol, Kehinde Wiley, Alfred Eisenstaedt, Gustav Klimt, Dante Gabriel Rossetti, Tom Thomson"
-numparticles = 10
-single_initial_latent = False
+# prompt = "child flying a kite at the beach, by Thomas Kinkade, Vincent Van Gogh, Leonid Afremov, Claude Monet, Edward Hopper, Norman Rockwell, William-Adolphe Bouguereau, Albert Bierstadt, John Singer Sargent, Pierre-Auguste Renoir, Frida Kahlo, John William Waterhouse, Winslow Homer, Walt Disney, Thomas Moran, Phil Koch, Paul Cézanne, Camille Pissarro, Erin Hanson, Thomas Cole, Raphael, Steve Henderson, Pablo Picasso, Caspar David Friedrich, Ansel Adams, Diego Rivera, Steve McCurry, Bob Ross, John Atkinson Grimshaw, Rob Gonsalves, Paul Gauguin, James Tissot, Edouard Manet, Alphonse Mucha, Alfred Sisley, Fabian Perez, Gustave Courbet, Zaha Hadid, Jean-Léon Gérôme, Carl Larsson, Mary Cassatt, Sandro Botticelli, Daniel Ridgway Knight, Joaquín Sorolla, Andy Warhol, Kehinde Wiley, Alfred Eisenstaedt, Gustav Klimt, Dante Gabriel Rossetti, Tom Thomson"
+# styles = ["Mona Lisa by Thomas Kinkade", "Mona Lisa by Vincent Van Gogh", "Mona Lisa by Leonid Afremov"]
+# prompt = []
+# for s in styles:
+#     for _ in range(9):
+#         prompt.append(s)
+prompt = ['bird in sky, bottom right']
+numparticles = 2
+single_initial_latent = True
 
 ###########################################################################
 
@@ -179,7 +185,7 @@ particles = denoise_particles(
     correction_step_type="auto",
     addpart_level=addpart_level,
     model=model, 
-    repulsive_strength=1000, repulsive_strat="kernel"
+    repulsive_strength=10, repulsive_strat="kernel"
 )
 model.return_conv_act=False
 if type(model)==VGG_noise:
@@ -199,7 +205,7 @@ save_grid=False
 
 if save_grid:
     # Display images in grid with max_cols columns
-    max_cols = 100
+    max_cols = 9
     ncols = max_cols if numparticles > max_cols else numparticles
     nrows = int(np.ceil(numparticles / ncols))
     grid = image_grid(pil_images,nrows,ncols)

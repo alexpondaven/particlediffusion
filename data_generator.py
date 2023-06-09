@@ -1,6 +1,6 @@
 # Data generation for experiments
 import os
-os.environ["CUDA_VISIBLE_DEVICES"]="7"
+os.environ["CUDA_VISIBLE_DEVICES"]="4"
 from diffusers import DiffusionPipeline
 import numpy as np
 import random
@@ -53,9 +53,11 @@ pipe.enable_xformers_memory_efficient_attention()
 
 prompt_subjects = {
     "cave": "a humongous cave opening in a rainforest, waterfall in the middle, concept art",
-    "tree": "a beautiful painting of a tree with autumn flowers on a green hill by the river",
+    "tree": "a beautiful painting of a tree with autumn flowers on a green hill by the river", #https://prompthero.com/prompt/9645f10f44e
     "vase": "painting of a beautiful vase of flowers",
+    "kite": "child flying a kite at the beach", #https://openart.ai/discovery/sd-1007129292574040064
     "parkour": "a portrait of a parkour runner with a black tank top and white running pants, city setting",
+
 }
 
 mode = args.mode
@@ -126,6 +128,7 @@ def gen_repulse(numparticles, segments, single_initial_latent,init_seed, repulsi
         if repulsive:
             steps = Steps(init_method="repulsive_no_noise") #repulsive_no_noise
             if langevin:
+                # Note: not experimenting with repulsive langevin steps
                 steps.add_all("repulsive",1)
             latents = denoise_particles(
                 config, generator, num_particles=numparticles, steps=steps.steps,
