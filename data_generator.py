@@ -1,6 +1,6 @@
 # Data generation for experiments
 import os
-os.environ["CUDA_VISIBLE_DEVICES"]="4"
+os.environ["CUDA_VISIBLE_DEVICES"]="1"
 from diffusers import DiffusionPipeline
 import numpy as np
 import random
@@ -36,7 +36,7 @@ import argparse
 parser = argparse.ArgumentParser(description="Running diversity steps experiment.")
 parser.add_argument("--mode", type=str, default="min_div", help="type of dataset to generate")
 parser.add_argument("--subject", type=str, default="cave", help="prompt name")
-parser.add_argument("--artistnum", type=int, default=0, help="number of artist (-1 if no artist, -2 if all artist)")
+parser.add_argument("--artistnum", type=int, default=-2, help="number of artist (-1 if no artist, -2 if all artist)")
 args = parser.parse_args()
 
 # Using 512x512 resolution
@@ -57,6 +57,7 @@ prompt_subjects = {
     "vase": "painting of a beautiful vase of flowers",
     "kite": "child flying a kite at the beach", #https://openart.ai/discovery/sd-1007129292574040064
     "parkour": "a portrait of a parkour runner with a black tank top and white running pants, city setting",
+    "actress": "A breathtaking full body portrait of Ana de Armas, clothed, reminiscent of classical Renaissance paintings, with soft, luminous lighting, and delicate brushwork. Timeless and evocative" # https://stable-diffusion-art.com/chatgpt-prompt/ + chatgpt
 
 }
 
@@ -281,7 +282,7 @@ elif mode=="langevin":
     numparticles=1000
     segments = 10
     single_initial_latent=False
-    init_seed = 8000
+    init_seed = 1000 # CHANGE BACK TO 8000
     gen_repulse(numparticles, segments, single_initial_latent,init_seed, repulsive=False, langevin=True)
 elif mode=="averagedim_all_r1000":
     ############### AVERAGEDIM ALL RANDOM INITIAL LATENTS

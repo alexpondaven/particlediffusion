@@ -24,10 +24,10 @@ def get_metric(f, metric, return_act=False):
         model = InceptionV3([block_idx], model_dir=fid_dir).to(device)
 
         act = get_activations(f, model, 50, dims, device, None)
-        act = np.mean(act,axis=1)
-        act = act.reshape(act.shape[0], -1)
         if return_act:
             return act
+        act = np.mean(act,axis=1)
+        act = act.reshape(act.shape[0], -1)
         mu = np.mean(act, axis=0)
         sigma = np.cov(act, rowvar=False)
     elif metric=='gram64':

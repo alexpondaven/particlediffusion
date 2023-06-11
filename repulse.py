@@ -75,9 +75,10 @@ pipe.enable_xformers_memory_efficient_attention()
 # for s in styles:
 #     for _ in range(9):
 #         prompt.append(s)
-prompt = ['bird in sky, bottom right']
-numparticles = 2
-single_initial_latent = True
+# prompt = 'painting of a beautiful vase of flowers'
+prompt = 'A breathtaking full body portrait of Ana de Armas, clothed, reminiscent of classical Renaissance paintings, with soft, luminous lighting, and delicate brushwork. Timeless and evocative. by Thomas Kinkade, Vincent Van Gogh, Leonid Afremov, Claude Monet, Edward Hopper, Norman Rockwell, William-Adolphe Bouguereau, Albert Bierstadt, John Singer Sargent, Pierre-Auguste Renoir, Frida Kahlo, John William Waterhouse, Winslow Homer, Walt Disney, Thomas Moran, Phil Koch, Paul Cézanne, Camille Pissarro, Erin Hanson, Thomas Cole, Raphael, Steve Henderson, Pablo Picasso, Caspar David Friedrich, Ansel Adams, Diego Rivera, Steve McCurry, Bob Ross, John Atkinson Grimshaw, Rob Gonsalves, Paul Gauguin, James Tissot, Edouard Manet, Alphonse Mucha, Alfred Sisley, Fabian Perez, Gustave Courbet, Zaha Hadid, Jean-Léon Gérôme, Carl Larsson, Mary Cassatt, Sandro Botticelli, Daniel Ridgway Knight, Joaquín Sorolla, Andy Warhol, Kehinde Wiley, Alfred Eisenstaedt, Gustav Klimt, Dante Gabriel Rossetti, Tom Thomson'
+numparticles = 10
+single_initial_latent = False
 
 ###########################################################################
 
@@ -176,8 +177,8 @@ seed=1024
 generator = torch.Generator("cuda").manual_seed(seed)
 
 steps = Steps(init_method="repulsive_no_noise") #repulsive_no_noise
-# steps.add_all(method,2)
-# steps.add_list(list(range(10,20)),method,[10]*10)
+# steps.add_all(method,5)
+# steps.add_list(list(range(10)),method,[2]*10)
 # steps.add_list([0,1,2,3],method,[10,10,10,10])
 # steps.add_list([5],method,[2])
 particles = denoise_particles(
@@ -185,7 +186,7 @@ particles = denoise_particles(
     correction_step_type="auto",
     addpart_level=addpart_level,
     model=model, 
-    repulsive_strength=10, repulsive_strat="kernel"
+    repulsive_strength=0, repulsive_strat="kernel"
 )
 model.return_conv_act=False
 if type(model)==VGG_noise:
