@@ -26,9 +26,6 @@ def langevin_step(
         #     new_samples.append(new_sample)
         # return torch.stack(new_samples)
 
-        # TODO: Temporary
-        # step_size = step_size / 10
-
         new_samples = samples + step_size * scores
         if add_noise:
             noise = torch.randn(samples.shape, layout=samples.layout, device=device, generator=generator).to(device)

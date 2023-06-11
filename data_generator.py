@@ -1,6 +1,6 @@
 # Data generation for experiments
 import os
-os.environ["CUDA_VISIBLE_DEVICES"]="1"
+os.environ["CUDA_VISIBLE_DEVICES"]="7"
 from diffusers import DiffusionPipeline
 import numpy as np
 import random
@@ -10,9 +10,6 @@ import glob
 import matplotlib.pyplot as plt
 from typing import Optional, Tuple, Union
 import pandas as pd
-
-from fid.fid_score import calculate_activation_statistics, save_statistics, load_statistics, calculate_frechet_distance, get_activations
-from fid.inception import InceptionV3
 
 from PIL import Image
 from tqdm.auto import tqdm
