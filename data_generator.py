@@ -281,6 +281,16 @@ elif mode=="langevin":
     single_initial_latent=False
     init_seed = 1000 # CHANGE BACK TO 8000
     gen_repulse(numparticles, segments, single_initial_latent,init_seed, repulsive=False, langevin=True)
+elif mode=="langevin2":
+    ############### MINIMUM DIVERSITY WITH LANGEVIN
+    # Change seed just in case
+    # One artist 10k
+    # Note: original base min_div for first 3 prompts had seed 9000
+    numparticles=1000
+    segments = 10
+    single_initial_latent=False
+    init_seed = 1000 # CHANGE BACK TO 8000
+    gen_repulse(numparticles, segments, single_initial_latent,init_seed, repulsive=False, langevin=True)
 elif mode=="averagedim_all_r1000":
     ############### AVERAGEDIM ALL RANDOM INITIAL LATENTS
     # Can only repulse each subset of 1k particles

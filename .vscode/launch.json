@@ -13,7 +13,7 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "justMyCode": false,
-            "args": ["--method","repulsive","--model","vgg_noise"]//["--mode","averagedim_all_r10"]
+            //"args": ["--method","repulsive","--model","vgg_noise"]//["--mode","averagedim_all_r10"]
         }
     ]
 }

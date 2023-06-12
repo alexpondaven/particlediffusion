@@ -1,5 +1,6 @@
+"""Plot the closest and furthest images in each set according to l2 distance between features"""
 import os
-os.environ["CUDA_VISIBLE_DEVICES"]="2"
+os.environ["CUDA_VISIBLE_DEVICES"]="5"
 from diffusers import DiffusionPipeline
 import numpy as np
 import random
@@ -35,7 +36,8 @@ from collections import deque
 from torch.utils.data import DataLoader, Dataset, random_split
 from glob import glob
 
-prompts = ['actress']
+# prompts = ['vase','tree','parkour','cave','kite']
+prompts = ['cave']
 exp_names = {
     'max_div': 'max diversity',
     'min_div':'minimum diversity',
