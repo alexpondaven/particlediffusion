@@ -41,14 +41,14 @@ pipe.scheduler = EulerAncestralDiscreteScheduler.from_config(scheduler_config)
 
 seed=1024
 generator = torch.Generator("cuda").manual_seed(seed)
-dst_path = 'data/final/parkour/eulera/'
+dst_path = 'data/final/actress/eulera/all/'
 os.makedirs(dst_path, exist_ok=True)
 for n in range(2000):
     num_cols = 5
 
     
     # prompt = ["full length shot, super hero pose, biomechanical suit, inflatable shapes, wearing epic bionic cyborg implants, masterpiece, intricate, biopunk futuristic wardrobe, highly detailed, artstation, concept art, cyberpunk, octane render"]
-    prompt = ["'a portrait of a parkour runner with a black tank top and white running pants, city setting, by Thomas Kinkade, Vincent Van Gogh, Leonid Afremov, Claude Monet, Edward Hopper, Norman Rockwell, William-Adolphe Bouguereau, Albert Bierstadt, John Singer Sargent, Pierre-Auguste Renoir, Frida Kahlo, John William Waterhouse, Winslow Homer, Walt Disney, Thomas Moran, Phil Koch, Paul Cézanne, Camille Pissarro, Erin Hanson, Thomas Cole, Raphael, Steve Henderson, Pablo Picasso, Caspar David Friedrich, Ansel Adams, Diego Rivera, Steve McCurry, Bob Ross, John Atkinson Grimshaw, Rob Gonsalves, Paul Gauguin, James Tissot, Edouard Manet, Alphonse Mucha, Alfred Sisley, Fabian Perez, Gustave Courbet, Zaha Hadid, Jean-Léon Gérôme, Carl Larsson, Mary Cassatt, Sandro Botticelli, Daniel Ridgway Knight, Joaquín Sorolla, Andy Warhol, Kehinde Wiley, Alfred Eisenstaedt, Gustav Klimt, Dante Gabriel Rossetti, Tom Thomson'"]
+    prompt = ["A breathtaking full body portrait of Ana de Armas, clothed, reminiscent of classical Renaissance paintings, with soft, luminous lighting, and delicate brushwork. Timeless and evocative, by Thomas Kinkade, Vincent Van Gogh, Leonid Afremov, Claude Monet, Edward Hopper, Norman Rockwell, William-Adolphe Bouguereau, Albert Bierstadt, John Singer Sargent, Pierre-Auguste Renoir, Frida Kahlo, John William Waterhouse, Winslow Homer, Walt Disney, Thomas Moran, Phil Koch, Paul Cézanne, Camille Pissarro, Erin Hanson, Thomas Cole, Raphael, Steve Henderson, Pablo Picasso, Caspar David Friedrich, Ansel Adams, Diego Rivera, Steve McCurry, Bob Ross, John Atkinson Grimshaw, Rob Gonsalves, Paul Gauguin, James Tissot, Edouard Manet, Alphonse Mucha, Alfred Sisley, Fabian Perez, Gustave Courbet, Zaha Hadid, Jean-Léon Gérôme, Carl Larsson, Mary Cassatt, Sandro Botticelli, Daniel Ridgway Knight, Joaquín Sorolla, Andy Warhol, Kehinde Wiley, Alfred Eisenstaedt, Gustav Klimt, Dante Gabriel Rossetti, Tom Thomson"]
 
     prompt = prompt* num_cols
 

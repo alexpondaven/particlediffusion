@@ -55,7 +55,6 @@ prompt_subjects = {
     "kite": "child flying a kite at the beach", #https://openart.ai/discovery/sd-1007129292574040064
     "parkour": "a portrait of a parkour runner with a black tank top and white running pants, city setting",
     "actress": "A breathtaking full body portrait of Ana de Armas, clothed, reminiscent of classical Renaissance paintings, with soft, luminous lighting, and delicate brushwork. Timeless and evocative" # https://stable-diffusion-art.com/chatgpt-prompt/ + chatgpt
-
 }
 
 mode = args.mode

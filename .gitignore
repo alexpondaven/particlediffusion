@@ -3,6 +3,7 @@
 *.pt
 *.npz
 *.pdf
+*.pkl
 */__pycache__
 *.onnx
 *.ttf
