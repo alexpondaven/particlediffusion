@@ -1,6 +1,6 @@
 """Plot the closest and furthest images in each set according to l2 distance between features"""
 import os
-os.environ["CUDA_VISIBLE_DEVICES"]="0"
+os.environ["CUDA_VISIBLE_DEVICES"]="1"
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -9,17 +9,17 @@ from src.metric_utils import fid_metric, get_metric
 from glob import glob
 
 # prompts = ['vase','tree','parkour','cave','kite','actress']
-prompts = ['actress']
+prompts = ['vase']
 exp_names = {
-    # 'max_div': 'max diversity',
-    # 'min_div':'minimum diversity',
-    # 'averagedim_all_r1000':'average channel repulsed',
-    # 'cnn16_all_r1000':'random CNN repulsed',
-    # 'langevin': 'langevin',
-    'eulera': 'stochastic scheduler',
-    # 'ro3_all_r1000': 'rule of thirds repulsed',
-    # 'vgg_noise_all_r1000':'style classifier repulsed',
-    # 'vgg_noisero3_all_r1000':'style classifier and rule of thirds repulsed'
+    'max_div': 'max diversity',
+    'min_div':'minimum diversity',
+    'averagedim_all_r1000':'average channel repulsed',
+    'cnn16_all_r1000':'random CNN repulsed',
+    'langevin': 'langevin',
+    # 'eulera': 'stochastic scheduler',
+    'ro3_all_r1000': 'rule of thirds repulsed',
+    'vgg_noise_all_r1000':'style classifier repulsed',
+    'vgg_noisero3_all_r1000':'style classifier and rule of thirds repulsed'
 }
 met_names = {
     'stats': 'FID',
@@ -27,7 +27,7 @@ met_names = {
     'local': 'Location'
 }
 
-plot_dists = True
+plot_dists = False
 plot_hists = False
 
 for prompt in prompts:
