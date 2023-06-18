@@ -27,6 +27,8 @@ parser.add_argument("--seed", type=int, default=1024, help="random seed")
 # Diversification method
 parser.add_argument("--method", type=str, default="repulsive", help="random, langevin, or repulsive")
 parser.add_argument("--noise_level", type=int, default=0, help="noise_level to take steps in")
+parser.add_argument("--strength", type=int, default=0, help="repulsive strength")
+
 parser.add_argument("--num_steps", type=int, default=100, help="no. of steps to take between samples")
 parser.add_argument("--num_samples", type=int, default=10, help="no. of samples to take")
 parser.add_argument("--step_size", type=float, default=0.1, help="fixed stepsize")
@@ -76,9 +78,11 @@ pipe.enable_xformers_memory_efficient_attention()
 #     for _ in range(9):
 #         prompt.append(s)
 # prompt = 'painting of a beautiful vase of flowers'
-prompt = 'a portrait of a parkour runner with a black tank top and white running pants, city setting, by Thomas Kinkade, Vincent Van Gogh, Leonid Afremov, Claude Monet, Edward Hopper, Norman Rockwell, William-Adolphe Bouguereau, Albert Bierstadt, John Singer Sargent, Pierre-Auguste Renoir, Frida Kahlo, John William Waterhouse, Winslow Homer, Walt Disney, Thomas Moran, Phil Koch, Paul Cézanne, Camille Pissarro, Erin Hanson, Thomas Cole, Raphael, Steve Henderson, Pablo Picasso, Caspar David Friedrich, Ansel Adams, Diego Rivera, Steve McCurry, Bob Ross, John Atkinson Grimshaw, Rob Gonsalves, Paul Gauguin, James Tissot, Edouard Manet, Alphonse Mucha, Alfred Sisley, Fabian Perez, Gustave Courbet, Zaha Hadid, Jean-Léon Gérôme, Carl Larsson, Mary Cassatt, Sandro Botticelli, Daniel Ridgway Knight, Joaquín Sorolla, Andy Warhol, Kehinde Wiley, Alfred Eisenstaedt, Gustav Klimt, Dante Gabriel Rossetti, Tom Thomson'
-numparticles = 4
+prompt = "beautiful tree"
+# prompt = 'a portrait of a parkour runner with a black tank top and white running pants, city setting, by Thomas Kinkade, Vincent Van Gogh, Leonid Afremov, Claude Monet, Edward Hopper, Norman Rockwell, William-Adolphe Bouguereau, Albert Bierstadt, John Singer Sargent, Pierre-Auguste Renoir, Frida Kahlo, John William Waterhouse, Winslow Homer, Walt Disney, Thomas Moran, Phil Koch, Paul Cézanne, Camille Pissarro, Erin Hanson, Thomas Cole, Raphael, Steve Henderson, Pablo Picasso, Caspar David Friedrich, Ansel Adams, Diego Rivera, Steve McCurry, Bob Ross, John Atkinson Grimshaw, Rob Gonsalves, Paul Gauguin, James Tissot, Edouard Manet, Alphonse Mucha, Alfred Sisley, Fabian Perez, Gustave Courbet, Zaha Hadid, Jean-Léon Gérôme, Carl Larsson, Mary Cassatt, Sandro Botticelli, Daniel Ridgway Knight, Joaquín Sorolla, Andy Warhol, Kehinde Wiley, Alfred Eisenstaedt, Gustav Klimt, Dante Gabriel Rossetti, Tom Thomson'
+numparticles = 5
 single_initial_latent = False
+repulsive_strength = args.strength
 
 ###########################################################################
 
@@ -176,8 +180,8 @@ if args.style:
 seed=1024
 generator = torch.Generator("cuda").manual_seed(seed)
 
-steps = Steps(init_method="score") #repulsive_no_noise
-steps.add(5,"langevin",1)
+steps = Steps(init_method="repulsive_no_noise") #repulsive_no_noise
+# steps.add(5,"langevin",1)
 # steps.add_list(list(range(1,10)),"langevin",[1]*9)
 # steps.add_all(method,5)
 # steps.add_list(list(range(10)),method,[2]*10)
@@ -188,7 +192,7 @@ particles = denoise_particles(
     correction_step_type="auto",
     addpart_level=addpart_level,
     model=model, 
-    repulsive_strength=0, repulsive_strat="kernel"
+    repulsive_strength=repulsive_strength, repulsive_strat="kernel"
 )
 model.return_conv_act=False
 if type(model)==VGG_noise:
@@ -204,21 +208,36 @@ images = output_to_img(decode_latent(particles, pipe.vae))
 images = (images * 255).round().astype("uint8")
 pil_images = [Image.fromarray(image) for image in images]
 
-save_grid=False
+save_grid=True
+report=True
 
 if save_grid:
-    # Display images in grid with max_cols columns
-    max_cols = 9
-    ncols = max_cols if numparticles > max_cols else numparticles
-    nrows = int(np.ceil(numparticles / ncols))
-    grid = image_grid(pil_images,nrows,ncols)
+    if report:
+        # Display images in grid with max_cols columns
+        max_cols = 9
+        ncols = max_cols if numparticles > max_cols else numparticles
+        nrows = int(np.ceil(numparticles / ncols))
+        grid = image_grid(pil_images,nrows,ncols)
 
-    # Save image grid
-    timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
-    if method=="repulsive":
-        method = "repulsive_"+args.model
-    filename = f"data/outputs/out_{method}_{timestamp}.png"
-    grid.save(filename)
+        # Save image grid
+        method = args.model
+        timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
+        foldername = f"data/report_results/{method}"
+        os.makedirs(foldername, exist_ok=True)
+        grid.save(f"{foldername}/{method}_r{repulsive_strength}.png")
+    else:
+        # Display images in grid with max_cols columns
+        max_cols = 9
+        ncols = max_cols if numparticles > max_cols else numparticles
+        nrows = int(np.ceil(numparticles / ncols))
+        grid = image_grid(pil_images,nrows,ncols)
+
+        # Save image grid
+        timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
+        if method=="repulsive":
+            method = "repulsive_"+args.model
+        filename = f"data/outputs/out_{method}_{timestamp}.png"
+        grid.save(filename)
 else:
     timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
     if method=="repulsive":
