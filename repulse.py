@@ -40,6 +40,8 @@ parser.add_argument("--model", type=str, default="averagedim", help="embedding m
 parser.add_argument("--style", action='store_true', help="whether to get style of model")
 parser.add_argument("--gpu", type=int, default=3, help="gpu")
 
+parser.add_argument("--report", action='store_true', help="whether to plot report images")
+
 args = parser.parse_args()
 prompt = args.prompt
 seed = args.seed
@@ -78,7 +80,9 @@ pipe.enable_xformers_memory_efficient_attention()
 #     for _ in range(9):
 #         prompt.append(s)
 # prompt = 'painting of a beautiful vase of flowers'
-prompt = "beautiful tree"
+# prompt = "beautiful tree"
+prompt = "an ultra detailed beautiful painting psychedelic professional portrait of a Dune 2021 character, centered, intricate, by conrad roset, greg rutkowski and makoto shinkai, trending on artstation, Realistic, Cinematic"
+# prompt = "fantasy map of a continent with diverse terrain, ultra-detailed, by Wilson McLean!, HD, D&D, 4k, 8k, high detail!, intricate, encyclopedia illustration"
 # prompt = 'a portrait of a parkour runner with a black tank top and white running pants, city setting, by Thomas Kinkade, Vincent Van Gogh, Leonid Afremov, Claude Monet, Edward Hopper, Norman Rockwell, William-Adolphe Bouguereau, Albert Bierstadt, John Singer Sargent, Pierre-Auguste Renoir, Frida Kahlo, John William Waterhouse, Winslow Homer, Walt Disney, Thomas Moran, Phil Koch, Paul Cézanne, Camille Pissarro, Erin Hanson, Thomas Cole, Raphael, Steve Henderson, Pablo Picasso, Caspar David Friedrich, Ansel Adams, Diego Rivera, Steve McCurry, Bob Ross, John Atkinson Grimshaw, Rob Gonsalves, Paul Gauguin, James Tissot, Edouard Manet, Alphonse Mucha, Alfred Sisley, Fabian Perez, Gustave Courbet, Zaha Hadid, Jean-Léon Gérôme, Carl Larsson, Mary Cassatt, Sandro Botticelli, Daniel Ridgway Knight, Joaquín Sorolla, Andy Warhol, Kehinde Wiley, Alfred Eisenstaedt, Gustav Klimt, Dante Gabriel Rossetti, Tom Thomson'
 numparticles = 5
 single_initial_latent = False
@@ -209,7 +213,7 @@ images = (images * 255).round().astype("uint8")
 pil_images = [Image.fromarray(image) for image in images]
 
 save_grid=True
-report=True
+report=args.report
 
 if save_grid:
     if report:
@@ -222,7 +226,7 @@ if save_grid:
         # Save image grid
         method = args.model
         timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
-        foldername = f"data/report_results/{method}"
+        foldername = f"data/report_results/portrait/{method}"
         os.makedirs(foldername, exist_ok=True)
         grid.save(f"{foldername}/{method}_r{repulsive_strength}.png")
     else:
