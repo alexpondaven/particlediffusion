@@ -265,11 +265,12 @@ class VAEAverage(nn.Module):
 
 class Edges(nn.Module):
     def forward(self, x):
-        dc = torch.mean(x, axis=(2,3))
+        # dc = torch.mean(x, axis=(2,3))
         horz = torch.mean(x[...,32:, :] - x[...,:32,:], axis=(2,3))
         vert = torch.mean(x[...,:, :32] - x[...,:,32:], axis=(2,3))
         # return vert
-        return torch.cat((dc, vert,horz),axis=1)
+        # return torch.cat((dc, vert,horz),axis=1)
+        return torch.cat((vert,horz),axis=1)
 
 # Rule of thirds
 class RuleOfThirds(nn.Module):

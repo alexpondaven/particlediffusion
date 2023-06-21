@@ -1,3 +1,4 @@
+# Training method for the style classifier
 from tqdm.auto import tqdm
 import random
 import torch
