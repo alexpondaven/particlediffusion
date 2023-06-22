@@ -1,6 +1,6 @@
 #!/bin/sh
-
-#latent ro3 cnn16 vgg_noise vgg_noisero3
+# Script to generate repulsion samples
+#Models: latent ro3 cnn16 vgg_noise vgg_noisero3
 for model in averagedim
 do
     for strength in 0 50 100 200 300 400 500 800 1000 2000

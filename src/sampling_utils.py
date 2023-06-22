@@ -17,15 +17,6 @@ def langevin_step(
         device="cuda",
     ):
         """Take noisy step towards score"""
-        # new_samples = []
-        # for i in range(len(samples)):
-        #     new_sample = samples[i] + step_size * scores[i]
-        #     if add_noise:
-        #         noise = torch.randn(samples[i].shape, layout=samples[i].layout, device=device, generator=generator).to(device)
-        #         new_sample += ((step_size * 2) ** 0.5) * noise
-        #     new_samples.append(new_sample)
-        # return torch.stack(new_samples)
-
         new_samples = samples + step_size * scores
         if add_noise:
             noise = torch.randn(samples.shape, layout=samples.layout, device=device, generator=generator).to(device)

@@ -1,6 +1,18 @@
+# Save first 10 images from each dataset
 *.png
+!data/final/*/averagedim_all_r1000/all/all_?.png
+!data/final/*/cnn16_all_r1000/all/all_?.png
+!data/final/*/ro3_all_r1000/all/all_?.png
+!data/final/*/vgg_noise_all_r1000/all/all_?.png
+!data/final/*/vgg_noisero3_all_r1000/all/all_?.png
+!data/final/*/langevin/all/all_?.png
+!data/final/*/max_div/*/*_0.png
+!data/final/*/max_div/*/*_1.png
+!data/final/*/min_div/all/all_?.png
+
 *.pth
 *.pt
+!data/model_chk/artist_noise_classifier_epoch2000_final.pt
 *.npz
 *.pdf
 *.pkl

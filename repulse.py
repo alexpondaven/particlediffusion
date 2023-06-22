@@ -26,29 +26,22 @@ parser.add_argument("--seed", type=int, default=1024, help="random seed")
 
 # Diversification method
 parser.add_argument("--method", type=str, default="repulsive", help="random, langevin, or repulsive")
-parser.add_argument("--noise_level", type=int, default=0, help="noise_level to take steps in")
 parser.add_argument("--strength", type=int, default=0, help="repulsive strength")
 
-parser.add_argument("--num_steps", type=int, default=100, help="no. of steps to take between samples")
-parser.add_argument("--num_samples", type=int, default=10, help="no. of samples to take")
-parser.add_argument("--step_size", type=float, default=0.1, help="fixed stepsize")
-
 # Particle/repulsive method arguments
-parser.add_argument("--nparticles", type=int, default=2, help="no. of particles")
+parser.add_argument("--nparticles", type=int, default=5, help="no. of particles")
 parser.add_argument("--kernel", type=str, default="rbf", help="kernel")
-parser.add_argument("--model", type=str, default="averagedim", help="embedding model for latents for latent evaluation")
+parser.add_argument("--model", type=str, default="averagedim", 
+                    help="embedding model. choose from: cnn16 (random cnn), averagedim (latent channel average), edges (half plane difference), ro3 (rule of thirds), vgg_noise (style classifier), vgg_noisero3 (style classifier with rule of thirds), latent (repulsion on pure latent space)")
 parser.add_argument("--style", action='store_true', help="whether to get style of model")
-parser.add_argument("--gpu", type=int, default=3, help="gpu")
 
+# Evaluation
 parser.add_argument("--report", action='store_true', help="whether to plot report images")
 
 args = parser.parse_args()
 prompt = args.prompt
 seed = args.seed
 method = args.method
-noise_level = args.noise_level
-num_steps = args.num_steps
-num_samples = args.num_samples
 step_size = args.step_size
 nparticles = args.nparticles
 device="cuda"
@@ -73,18 +66,14 @@ pipe.enable_model_cpu_offload()
 pipe.enable_xformers_memory_efficient_attention()
 
 ##### PARAMS #############################################################
-# prompt = "child flying a kite at the beach, by Thomas Kinkade, Vincent Van Gogh, Leonid Afremov, Claude Monet, Edward Hopper, Norman Rockwell, William-Adolphe Bouguereau, Albert Bierstadt, John Singer Sargent, Pierre-Auguste Renoir, Frida Kahlo, John William Waterhouse, Winslow Homer, Walt Disney, Thomas Moran, Phil Koch, Paul Cézanne, Camille Pissarro, Erin Hanson, Thomas Cole, Raphael, Steve Henderson, Pablo Picasso, Caspar David Friedrich, Ansel Adams, Diego Rivera, Steve McCurry, Bob Ross, John Atkinson Grimshaw, Rob Gonsalves, Paul Gauguin, James Tissot, Edouard Manet, Alphonse Mucha, Alfred Sisley, Fabian Perez, Gustave Courbet, Zaha Hadid, Jean-Léon Gérôme, Carl Larsson, Mary Cassatt, Sandro Botticelli, Daniel Ridgway Knight, Joaquín Sorolla, Andy Warhol, Kehinde Wiley, Alfred Eisenstaedt, Gustav Klimt, Dante Gabriel Rossetti, Tom Thomson"
-# styles = ["Mona Lisa by Thomas Kinkade", "Mona Lisa by Vincent Van Gogh", "Mona Lisa by Leonid Afremov"]
-# prompt = []
-# for s in styles:
-#     for _ in range(9):
-#         prompt.append(s)
-# prompt = 'painting of a beautiful vase of flowers'
-# prompt = "beautiful tree"
-prompt = "an ultra detailed beautiful painting psychedelic professional portrait of a Dune 2021 character, centered, intricate, by conrad roset, greg rutkowski and makoto shinkai, trending on artstation, Realistic, Cinematic"
-# prompt = "fantasy map of a continent with diverse terrain, ultra-detailed, by Wilson McLean!, HD, D&D, 4k, 8k, high detail!, intricate, encyclopedia illustration"
-# prompt = 'a portrait of a parkour runner with a black tank top and white running pants, city setting, by Thomas Kinkade, Vincent Van Gogh, Leonid Afremov, Claude Monet, Edward Hopper, Norman Rockwell, William-Adolphe Bouguereau, Albert Bierstadt, John Singer Sargent, Pierre-Auguste Renoir, Frida Kahlo, John William Waterhouse, Winslow Homer, Walt Disney, Thomas Moran, Phil Koch, Paul Cézanne, Camille Pissarro, Erin Hanson, Thomas Cole, Raphael, Steve Henderson, Pablo Picasso, Caspar David Friedrich, Ansel Adams, Diego Rivera, Steve McCurry, Bob Ross, John Atkinson Grimshaw, Rob Gonsalves, Paul Gauguin, James Tissot, Edouard Manet, Alphonse Mucha, Alfred Sisley, Fabian Perez, Gustave Courbet, Zaha Hadid, Jean-Léon Gérôme, Carl Larsson, Mary Cassatt, Sandro Botticelli, Daniel Ridgway Knight, Joaquín Sorolla, Andy Warhol, Kehinde Wiley, Alfred Eisenstaedt, Gustav Klimt, Dante Gabriel Rossetti, Tom Thomson'
-numparticles = 5
+if prompt=="":
+    # prompt = "child flying a kite at the beach, by Thomas Kinkade, Vincent Van Gogh, Leonid Afremov, Claude Monet, Edward Hopper, Norman Rockwell, William-Adolphe Bouguereau, Albert Bierstadt, John Singer Sargent, Pierre-Auguste Renoir, Frida Kahlo, John William Waterhouse, Winslow Homer, Walt Disney, Thomas Moran, Phil Koch, Paul Cézanne, Camille Pissarro, Erin Hanson, Thomas Cole, Raphael, Steve Henderson, Pablo Picasso, Caspar David Friedrich, Ansel Adams, Diego Rivera, Steve McCurry, Bob Ross, John Atkinson Grimshaw, Rob Gonsalves, Paul Gauguin, James Tissot, Edouard Manet, Alphonse Mucha, Alfred Sisley, Fabian Perez, Gustave Courbet, Zaha Hadid, Jean-Léon Gérôme, Carl Larsson, Mary Cassatt, Sandro Botticelli, Daniel Ridgway Knight, Joaquín Sorolla, Andy Warhol, Kehinde Wiley, Alfred Eisenstaedt, Gustav Klimt, Dante Gabriel Rossetti, Tom Thomson"
+    # prompt = 'painting of a beautiful vase of flowers'
+    # prompt = "beautiful tree"
+    prompt = "an ultra detailed beautiful painting psychedelic professional portrait of a Dune 2021 character, centered, intricate, by conrad roset, greg rutkowski and makoto shinkai, trending on artstation, Realistic, Cinematic"
+    # prompt = "fantasy map of a continent with diverse terrain, ultra-detailed, by Wilson McLean!, HD, D&D, 4k, 8k, high detail!, intricate, encyclopedia illustration"
+    # prompt = 'a portrait of a parkour runner with a black tank top and white running pants, city setting, by Thomas Kinkade, Vincent Van Gogh, Leonid Afremov, Claude Monet, Edward Hopper, Norman Rockwell, William-Adolphe Bouguereau, Albert Bierstadt, John Singer Sargent, Pierre-Auguste Renoir, Frida Kahlo, John William Waterhouse, Winslow Homer, Walt Disney, Thomas Moran, Phil Koch, Paul Cézanne, Camille Pissarro, Erin Hanson, Thomas Cole, Raphael, Steve Henderson, Pablo Picasso, Caspar David Friedrich, Ansel Adams, Diego Rivera, Steve McCurry, Bob Ross, John Atkinson Grimshaw, Rob Gonsalves, Paul Gauguin, James Tissot, Edouard Manet, Alphonse Mucha, Alfred Sisley, Fabian Perez, Gustave Courbet, Zaha Hadid, Jean-Léon Gérôme, Carl Larsson, Mary Cassatt, Sandro Botticelli, Daniel Ridgway Knight, Joaquín Sorolla, Andy Warhol, Kehinde Wiley, Alfred Eisenstaedt, Gustav Klimt, Dante Gabriel Rossetti, Tom Thomson'
+numparticles = args.nparticles
 single_initial_latent = False
 repulsive_strength = args.strength
 
@@ -184,7 +173,10 @@ if args.style:
 seed=1024
 generator = torch.Generator("cuda").manual_seed(seed)
 
-steps = Steps(init_method="repulsive_no_noise") #repulsive_no_noise
+# Repulsion on prediction steps
+steps = Steps(init_method="repulsive_no_noise")
+
+# Use steps API to add steps at specific noise levels
 # steps.add(5,"langevin",1)
 # steps.add_list(list(range(1,10)),"langevin",[1]*9)
 # steps.add_all(method,5)
