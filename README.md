@@ -8,7 +8,7 @@ python repulse.py --method repulsive --model averagedim --strength 100
 
 The number of particles and prompt can also be specified as arguments or within the script.
 
-Sample generations contained in data/. Be warned of possible unsafe images.
+Sample generations from evaluation for each repulsion method is contained in data/final/. Be warned of possible unsafe images.
 
 # Code glossary
 averagedim: latent channel average method
