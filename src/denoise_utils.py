@@ -6,7 +6,7 @@ from functools import partial
 
 from src.sampling_utils import random_step, langevin_step, repulsive_step_parallel, repulsive_step_series
 from src.kernel import RBF
-from src.score_utils import get_score, step_score
+from src.score_utils import get_score, step_score, get_score_multiprompt
 
 def denoise(
     correction_levels,
@@ -81,7 +81,8 @@ def correct_particles(
     kernel=None,
     repulsive_strength=10,
     repulsive_strat="kernel",
-    noise_cond=None
+    noise_cond=None,
+    weights=[],
     ):
     """ At certain noise scale (step t), apply correction steps to all particles
         particles: N particles in the diffusion process
@@ -128,11 +129,17 @@ def correct_particles(
     #             print(f"Correction {i} spread: SD - {spread(particles)} embedding - {spread([model(particle) for particle in particles])}")
     #     new_particles = particles
 
-    elif correction_method=="langevin" or correction_method=="score":
-        add_noise = (correction_method=="langevin")
+    elif correction_method in ["langevin", "langevin_mask", "langevin_multiprompt", "score", "score_mask", "score_multiprompt"]:
+        add_noise = "langevin" in correction_method
+        masked = "mask" in correction_method
+        multi_prompt = "multiprompt" in correction_method
         for _ in range(correction_steps):
-            score = get_score(particles, sigma, t, config)
-            particles = langevin_step(particles, score, generator, step_size=step_size, add_noise=add_noise)
+            if multi_prompt:
+                score = get_score_multiprompt(particles, sigma, t, config, weights)
+            else:
+                score = get_score(particles, sigma, t, config)
+            particles = langevin_step(particles, score, generator, step_size=step_size, add_noise=add_noise, 
+                                      masked = masked, noise_mask = config['noise_mask'])
     else:
         print(f"ERROR: Correction step type: '{correction_method}' not implemented yet")
             
@@ -200,7 +207,8 @@ def denoise_particles(
                 kernel=kernel,
                 repulsive_strength=repulsive_strength,
                 repulsive_strat=repulsive_strat,
-                noise_cond=noise_cond
+                noise_cond=noise_cond,
+                weights=steps.steps[i][2][0] # hacky to extract weights of ith step
             )
         
         # Automatic step_size using sigmas
@@ -211,7 +219,7 @@ def denoise_particles(
 
         # Steps
         if i in steps:
-            for step_method, num_steps in steps[i]:
+            for step_method, num_steps, *weights in steps[i]:
                 print(i)
                 particles = correct_particles(
                     particles, 
@@ -226,7 +234,8 @@ def denoise_particles(
                     kernel=kernel,
                     repulsive_strength=repulsive_strength,
                     repulsive_strat=repulsive_strat,
-                    noise_cond=noise_cond
+                    noise_cond=noise_cond,
+                    weights=weights[0],
                 )
     
     return particles

@@ -121,6 +121,52 @@ def get_score(samples, sigma, t, config):
         scores.append(score)
 
     return torch.cat(scores)
+
+def get_score_multiprompt(samples, sigma, t, config, weights):
+    """
+    Calculate score as combination of prompt terms NOT BATCHED
+    Get current ∇_x p(x|sigma)
+        sample: x (Nx4x64x64)
+        sigma: noise level
+        t: timestep for that noise level
+        config
+    
+    config['text_embeddings'][0] is unconditional
+    config['text_embeddings'][1:] is all conditional terms weighted by config['prompt_weights']
+    """
+    n = len(samples)
+    batch_size = min(config['batch_size'],n)
+    # if len(samples) % batch_size != 0:
+    #     print("ERROR: Number of particles must be divisible by batch size")
+    #     return
+
+    scores = []
+    for i in range(0, n, batch_size):
+        sample = samples[i:i+batch_size]
+        # expand latents for cfg to avoid 2 forward passes
+        latent_model_input = torch.cat([sample] * len(config['text_embeddings']))
+        latent_model_input = scale_input(latent_model_input, sigma)
+
+        # predict noise residual
+        with torch.no_grad():
+            noise_pred = config['pipe'].unet(latent_model_input, t, encoder_hidden_states=config['text_embeddings']).sample
+
+        # perform guidance and weighting of prompts
+        noise_pred_uncond, *noise_pred_prompts = torch.split(noise_pred, [1]*len(noise_pred))
+        noise_pred_text = 0
+        # Weigh prompts in score
+        for i, noise_pred_prompt in enumerate(noise_pred_prompts):
+            noise_pred_text += weights[i] * noise_pred_prompt
+        noise_pred = noise_pred_uncond + config['cfg'] * (noise_pred_text - noise_pred_uncond)
+
+        # D (pred_original_sample)
+        D = sample - sigma * noise_pred
+
+        # score
+        score = (D - sample) / (sigma**2)
+        scores.append(score)
+
+    return torch.cat(scores)
       
 def step_score(
         sample: torch.FloatTensor,

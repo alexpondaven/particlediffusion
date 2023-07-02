@@ -14,13 +14,21 @@ def langevin_step(
         generator,
         step_size=0.2,
         add_noise=True,
+        masked=False,
+        noise_mask = None,
         device="cuda",
     ):
         """Take noisy step towards score"""
-        new_samples = samples + step_size * scores
+        update = step_size * scores
         if add_noise:
             noise = torch.randn(samples.shape, layout=samples.layout, device=device, generator=generator).to(device)
-            new_samples += ((step_size * 2) ** 0.5) * noise
+            update += ((step_size * 2) ** 0.5) * noise
+        if masked:
+            if noise_mask is None:
+                print("ERROR: Noise mask must be defined if masking noise")
+            mask = noise_mask==0
+            update = update * mask + noise_mask
+        new_samples = samples + update
         return new_samples
         
 
